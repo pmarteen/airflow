@@ -19,13 +19,15 @@ from __future__ import unicode_literals
 
 import copy
 import errno
-import logging
 import os
 import six
 import subprocess
 import warnings
 
 from future import standard_library
+
+from airflow.utils.log.LoggingMixin import LoggingMixin
+
 standard_library.install_aliases()
 
 from builtins import str
@@ -37,6 +39,8 @@ import boto3
 import base64
 
 from airflow.exceptions import AirflowConfigException
+
+log = LoggingMixin().logger
 
 # show Airflow's deprecation warnings
 warnings.filterwarnings(
@@ -609,8 +613,9 @@ class AirflowConfigParser(ConfigParser):
             return option
 
         else:
-            logging.warning("section/key [{section}/{key}] not found "
-                            "in config".format(**locals()))
+            log.warning(
+                "section/key [{section}/{key}] not found in config".format(**locals())
+            )
 
             raise AirflowConfigException(
                 "section/key [{section}/{key}] not found "
@@ -809,20 +814,21 @@ def parameterized_config(template):
 
 TEST_CONFIG_FILE = AIRFLOW_HOME + '/unittests.cfg'
 if not os.path.isfile(TEST_CONFIG_FILE):
-    logging.info("Creating new airflow config file for unit tests in: " +
-                 TEST_CONFIG_FILE)
+    log.info(
+        'Creating new Airflow config file for unit tests in: %s', TEST_CONFIG_FILE
+    )
     with open(TEST_CONFIG_FILE, 'w') as f:
         f.write(parameterized_config(TEST_CONFIG))
 
 if not os.path.isfile(AIRFLOW_CONFIG):
-    # These configuration options are used to generate a default configuration
-    # when it is missing. The right way to change your configuration is to
-    # alter your configuration file, not this code.
-    logging.info("Creating new airflow config file in: " + AIRFLOW_CONFIG)
+    log.info(
+        'Creating new Airflow config file in: %s',
+        AIRFLOW_CONFIG
+    )
     with open(AIRFLOW_CONFIG, 'w') as f:
         f.write(parameterized_config(DEFAULT_CONFIG))
 
-logging.info("Reading the config from " + AIRFLOW_CONFIG)
+log.info("Reading the config from %s", AIRFLOW_CONFIG)
 
 conf = KmsAirflowConfigParser()
 conf.read(AIRFLOW_CONFIG)

@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from airflow.contrib.hooks.bigquery_hook import BigQueryHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
@@ -73,7 +71,7 @@ class BigQueryOperator(BaseOperator):
         self.use_legacy_sql = use_legacy_sql
 
     def execute(self, context):
-        logging.info('Executing: %s', str(self.bql))
+        self.logger.info('Executing: %s', self.bql)
         hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
                             delegate_to=self.delegate_to)
         conn = hook.get_conn()

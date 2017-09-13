@@ -5,6 +5,18 @@ assists people when migrating to a new version.
 
 ## Master
 
+### SSH Hook updates, along with new SSH Operator & SFTP Operator
+  SSH Hook now uses Paramiko library to create ssh client connection, instead of sub-process based ssh command execution previously (<1.9.0), so this is backward incompatible.
+  - update SSHHook constructor
+  - use SSHOperator class in place of SSHExecuteOperator which is removed now. Refer test_ssh_operator.py for usage info.
+  - SFTPOperator is added to perform secure file transfer from serverA to serverB. Refer test_sftp_operator.py.py for usage info.
+  - No updates are required if you are using ftpHook, it will continue work as is.
+
+### Logging update
+Airflow's logging has been rewritten to uses Python’s builtin `logging` module to perform system logging. By extending classes with the existing `LoggingMixin`, all the logging will go through a central logger. The main benefit that this brings to us is the easy configuration of the logging through `default_airflow_logging.py` and the ability to use different handlers for logging.
+
+Logs now are stored in the log folder as `{dag_id}/{task_id}/{execution_date}/{try_number}.log`.
+
 ### New Features
 
 #### Dask Executor

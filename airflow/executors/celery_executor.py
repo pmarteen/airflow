@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from builtins import object
-import logging
 import subprocess
 import time
 
@@ -23,6 +22,7 @@ from celery import states as celery_states
 from airflow.exceptions import AirflowException
 from airflow.executors.base_executor import BaseExecutor
 from airflow import configuration
+from airflow.utils.log.LoggingMixin import LoggingMixin
 
 PARALLELISM = configuration.get('core', 'PARALLELISM')
 
@@ -47,6 +47,26 @@ class CeleryConfig(object):
     CELERY_DEFAULT_QUEUE = DEFAULT_QUEUE
     CELERY_DEFAULT_EXCHANGE = DEFAULT_QUEUE
 
+    celery_ssl_active = False
+    try:
+        celery_ssl_active = configuration.getboolean('celery', 'CELERY_SSL_ACTIVE')
+    except AirflowConfigException as e:
+        log = LoggingMixin().logger
+        log.warning("Celery Executor will run without SSL")
+
+    try:
+        if celery_ssl_active:
+            BROKER_USE_SSL = {'keyfile': configuration.get('celery', 'CELERY_SSL_KEY'),
+                              'certfile': configuration.get('celery', 'CELERY_SSL_CERT'),
+                              'ca_certs': configuration.get('celery', 'CELERY_SSL_CACERT'),
+                              'cert_reqs': ssl.CERT_REQUIRED}
+    except AirflowConfigException as e:
+        raise AirflowException('AirflowConfigException: CELERY_SSL_ACTIVE is True, please ensure CELERY_SSL_KEY, '
+                               'CELERY_SSL_CERT and CELERY_SSL_CACERT are set')
+    except Exception as e:
+        raise AirflowException('Exception: There was an unknown Celery SSL Error.  Please ensure you want to use '
+                               'SSL and/or have all necessary certs and key.')
+
 app = Celery(
     configuration.get('celery', 'CELERY_APP_NAME'),
     config_source=CeleryConfig)
@@ -54,11 +74,12 @@ app = Celery(
 
 @app.task
 def execute_command(command):
-    logging.info("Executing command in Celery " + command)
+    log = LoggingMixin().logger
+    log.info("Executing command in Celery: %s", command)
     try:
         subprocess.check_call(command, shell=True)
     except subprocess.CalledProcessError as e:
-        logging.error(e)
+        log.error(e)
         raise AirflowException('Celery command failed')
 
 
@@ -71,40 +92,40 @@ class CeleryExecutor(BaseExecutor):
     vast amounts of messages, while providing operations with the tools
     required to maintain such a system.
     """
-
     def start(self):
         self.tasks = {}
         self.last_state = {}
 
     def execute_async(self, key, command, queue=DEFAULT_QUEUE):
-        self.logger.info( "[celery] queuing {key} through celery, "
-                       "queue={queue}".format(**locals()))
+        self.logger.info("[celery] queuing {key} through celery, queue={queue}".format(**locals()))
         self.tasks[key] = execute_command.apply_async(
             args=[command], queue=queue)
         self.last_state[key] = celery_states.PENDING
 
     def sync(self):
-
-        self.logger.debug(
-            "Inquiring about {} celery task(s)".format(len(self.tasks)))
+        self.logger.debug("Inquiring about %s celery task(s)", len(self.tasks))
         for key, async in list(self.tasks.items()):
-            state = async.state
-            if self.last_state[key] != state:
-                if state == celery_states.SUCCESS:
-                    self.success(key)
-                    del self.tasks[key]
-                    del self.last_state[key]
-                elif state == celery_states.FAILURE:
-                    self.fail(key)
-                    del self.tasks[key]
-                    del self.last_state[key]
-                elif state == celery_states.REVOKED:
-                    self.fail(key)
-                    del self.tasks[key]
-                    del self.last_state[key]
-                else:
-                    self.logger.info("Unexpected state: " + async.state)
-                self.last_state[key] = async.state
+            try:
+                state = async.state
+                if self.last_state[key] != state:
+                    if state == celery_states.SUCCESS:
+                        self.success(key)
+                        del self.tasks[key]
+                        del self.last_state[key]
+                    elif state == celery_states.FAILURE:
+                        self.fail(key)
+                        del self.tasks[key]
+                        del self.last_state[key]
+                    elif state == celery_states.REVOKED:
+                        self.fail(key)
+                        del self.tasks[key]
+                        del self.last_state[key]
+                    else:
+                        self.logger.info("Unexpected state: %s", async.state)
+                    self.last_state[key] = async.state
+            except Exception as e:
+                self.logger.error("Error syncing the celery executor, ignoring it:")
+                self.logger.exception(e)
 
     def end(self, synchronous=False):
         if synchronous:

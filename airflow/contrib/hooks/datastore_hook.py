@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import json
+import time
 from apiclient.discovery import build
 from airflow.contrib.hooks.gcp_api_base_hook import GoogleCloudBaseHook
 
@@ -108,3 +110,69 @@ class DatastoreHook(GoogleCloudBaseHook):
         """
         resp = self.connection.datasets().runQuery(datasetId=self.dataset_id, body=body).execute()
         return resp['batch']
+
+    def get_operation(self, name):
+        """
+        Gets the latest state of a long-running operation
+
+        :param name: the name of the operation resource
+        """
+        resp = self.connection.projects().operations().get(name=name).execute()
+        return resp
+
+    def delete_operation(self, name):
+        """
+        Deletes the long-running operation
+
+        :param name: the name of the operation resource
+        """
+        resp = self.connection.projects().operations().delete(name=name).execute()
+        return resp
+
+    def poll_operation_until_done(self, name, polling_interval_in_seconds):
+        """
+        Poll backup operation state until it's completed
+        """
+        while True:
+            result = self.get_operation(name)
+            state = result['metadata']['common']['state']
+            if state == 'PROCESSING':
+                self.logger.info('Operation is processing. Re-polling state in {} seconds'
+                        .format(polling_interval_in_seconds))
+                time.sleep(polling_interval_in_seconds)
+            else:
+                return result
+
+    def export_to_storage_bucket(self, bucket, namespace=None, entity_filter=None, labels=None):
+        """
+        Export entities from Cloud Datastore to Cloud Storage for backup
+        """
+        output_uri_prefix = 'gs://' + ('/').join(filter(None, [bucket, namespace]))
+        if not entity_filter:
+            entity_filter = {}
+        if not labels:
+            labels = {}
+        body = {
+            'outputUrlPrefix': output_uri_prefix,
+            'entityFilter': entity_filter,
+            'labels': labels,
+        }
+        resp = self.admin_connection.projects().export(projectId=self.project_id, body=body).execute()
+        return resp
+
+    def import_from_storage_bucket(self, bucket, file, namespace=None, entity_filter=None, labels=None):
+        """
+        Import a backup from Cloud Storage to Cloud Datastore
+        """
+        input_url = 'gs://' + ('/').join(filter(None, [bucket, namespace, file]))
+        if not entity_filter:
+            entity_filter = {}
+        if not labels:
+            labels = {}
+        body = {
+            'inputUrl': input_url,
+            'entityFilter': entity_filter,
+            'labels': labels,
+        }
+        resp = self.admin_connection.projects().import_(projectId=self.project_id, body=body).execute()
+        return resp

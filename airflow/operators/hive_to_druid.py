@@ -11,9 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import logging
-
 from airflow.hooks.hive_hooks import HiveCliHook, HiveMetastoreHook
 from airflow.hooks.druid_hook import DruidHook
 from airflow.models import BaseOperator
@@ -88,7 +85,7 @@ class HiveToDruidTransfer(BaseOperator):
 
     def execute(self, context):
         hive = HiveCliHook(hive_cli_conn_id=self.hive_cli_conn_id)
-        logging.info("Extracting data from Hive")
+        self.logger.info("Extracting data from Hive")
         hive_table = 'druid.' + context['task_instance_key_str'].replace('.', '_')
         sql = self.sql.strip().strip(';')
         hql = """\
@@ -102,7 +99,7 @@ class HiveToDruidTransfer(BaseOperator):
         AS
         {sql}
         """.format(**locals())
-        logging.info("Running command:\n {}".format(hql))
+        self.logger.info("Running command:\n %s", hql)
         hive.run_cli(hql)
 
         m = HiveMetastoreHook(self.metastore_conn_id)
@@ -121,17 +118,20 @@ class HiveToDruidTransfer(BaseOperator):
         logging.info("HDFS path: " + static_path)
 
         try:
-            druid.load_from_hdfs(
-                datasource=self.druid_datasource,
-                intervals=self.intervals,
-                static_path=static_path, ts_dim=self.ts_dim,
-                columns=columns, num_shards=self.num_shards, target_partition_size=self.target_partition_size,
-                query_granularity=self.query_granularity, segment_granularity=self.segment_granularity,
-                metric_spec=self.metric_spec, hadoop_dependency_coordinates=self.hadoop_dependency_coordinates)
-            logging.info("Load seems to have succeeded!")
+            index_spec = self.construct_ingest_query(
+                static_path=static_path,
+                columns=columns,
+            )
+
+            self.logger.info("Inserting rows into Druid, hdfs path: %s", static_path)
+
+            druid.submit_indexing_job(index_spec)
+
+            self.logger.info("Load seems to have succeeded!")
         finally:
-            logging.info(
-                "Cleaning up by dropping the temp "
-                "Hive table {}".format(hive_table))
+            self.logger.info(
+                "Cleaning up by dropping the temp Hive table %s",
+                hive_table
+            )
             hql = "DROP TABLE IF EXISTS {}".format(hive_table)
             hive.run_cli(hql)

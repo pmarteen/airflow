@@ -14,18 +14,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# This is a port of Luigi's ssh implementation. All credits go there.
-import subprocess
+
+import getpass
+import os
+
+import paramiko
+
 from contextlib import contextmanager
 
 from airflow.hooks.base_hook import BaseHook
-from airflow.exceptions import AirflowException
-
-import logging
+from airflow.utils.log.LoggingMixin import LoggingMixin
 
 
-class SSHHook(BaseHook):
+class SSHHook(BaseHook, LoggingMixin):
     """
     Light-weight remote execution library and utilities.
 
@@ -62,74 +63,94 @@ class SSHHook(BaseHook):
         self.conn = conn
 
     def get_conn(self):
-        pass
+        if not self.client:
+            self.logger.debug('Creating SSH client for conn_id: %s', self.ssh_conn_id)
+            if self.ssh_conn_id is not None:
+                conn = self.get_connection(self.ssh_conn_id)
+                if self.username is None:
+                    self.username = conn.login
+                if self.password is None:
+                    self.password = conn.password
+                if self.remote_host is None:
+                    self.remote_host = conn.host
+                if conn.extra is not None:
+                    extra_options = conn.extra_dejson
+                    self.key_file = extra_options.get("key_file")
 
-    def _host_ref(self):
-        if self.conn.login:
-            return "{0}@{1}".format(self.conn.login, self.conn.host)
-        else:
-            return self.conn.host
+                    if "timeout" in extra_options:
+                        self.timeout = int(extra_options["timeout"], 10)
 
-    def _prepare_command(self, cmd):
-        connection_cmd = ["ssh", self._host_ref(), "-o", "ControlMaster=no"]
-        if self.sshpass:
-            connection_cmd = ["sshpass", "-e"] + connection_cmd
-        else:
-            connection_cmd += ["-o", "BatchMode=yes"]  # no password prompts
+                    if "compress" in extra_options \
+                            and extra_options["compress"].lower() == 'false':
+                        self.compress = False
+                    if "no_host_key_check" in extra_options \
+                            and extra_options["no_host_key_check"].lower() == 'false':
+                        self.no_host_key_check = False
 
-        if self.conn.port:
-            connection_cmd += ["-p", str(self.conn.port)]
+            if not self.remote_host:
+                raise AirflowException("Missing required param: remote_host")
 
-        if self.connect_timeout:
-            connection_cmd += ["-o", "ConnectionTimeout={}".format(self.connect_timeout)]
+            # Auto detecting username values from system
+            if not self.username:
+                self.logger.debug(
+                    "username to ssh to host: %s is not specified for connection id"
+                    " %s. Using system's default provided by getpass.getuser()",
+                    self.remote_host, self.ssh_conn_id
+                )
+                self.username = getpass.getuser()
 
-        if self.tcp_keepalive:
-            connection_cmd += ["-o", "TCPKeepAlive=yes"]
-            connection_cmd += ["-o", "ServerAliveInterval={}".format(self.server_alive_interval)]
+            host_proxy = None
+            user_ssh_config_filename = os.path.expanduser('~/.ssh/config')
+            if os.path.isfile(user_ssh_config_filename):
+                ssh_conf = paramiko.SSHConfig()
+                ssh_conf.parse(open(user_ssh_config_filename))
+                host_info = ssh_conf.lookup(self.remote_host)
+                if host_info and host_info.get('proxycommand'):
+                    host_proxy = paramiko.ProxyCommand(host_info.get('proxycommand'))
 
-        if self.no_host_key_check:
-            connection_cmd += ["-o", "UserKnownHostsFile=/dev/null",
-                               "-o", "StrictHostKeyChecking=no"]
+                if not (self.password or self.key_file):
+                    if host_info and host_info.get('identityfile'):
+                        self.key_file = host_info.get('identityfile')[0]
 
-        if self.key_file:
-            connection_cmd += ["-i", self.key_file]
+            try:
+                client = paramiko.SSHClient()
+                client.load_system_host_keys()
+                if self.no_host_key_check:
+                    # Default is RejectPolicy
+                    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        if self.tty:
-            connection_cmd += ["-t"]
+                if self.password and self.password.strip():
+                    client.connect(hostname=self.remote_host,
+                                   username=self.username,
+                                   password=self.password,
+                                   timeout=self.timeout,
+                                   compress=self.compress,
+                                   sock=host_proxy)
+                else:
+                    client.connect(hostname=self.remote_host,
+                                   username=self.username,
+                                   key_filename=self.key_file,
+                                   timeout=self.timeout,
+                                   compress=self.compress,
+                                   sock=host_proxy)
 
-        connection_cmd += cmd
-        logging.debug("SSH cmd: {} ".format(connection_cmd))
-
-        return connection_cmd
-
-    def Popen(self, cmd, **kwargs):
-        """
-        Remote Popen
-
-        :param cmd: command to remotely execute
-        :param kwargs: extra arguments to Popen (see subprocess.Popen)
-        :return: handle to subprocess
-        """
-        prefixed_cmd = self._prepare_command(cmd)
-        return subprocess.Popen(prefixed_cmd, **kwargs)
-
-    def check_output(self, cmd):
-        """
-        Executes a remote command and returns the stdout a remote process.
-        Simplified version of Popen when you only want the output as a string and detect any errors.
-
-        :param cmd: command to remotely execute
-        :return: stdout
-        """
-        p = self.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, stderr = p.communicate()
-
-        if p.returncode != 0:
-            # I like this better: RemoteCalledProcessError(p.returncode, cmd, self.host, output=output)
-            raise AirflowException("Cannot execute {} on {}. Error code is: {}. Output: {}, Stderr: {}".format(
-                                   cmd, self.conn.host, p.returncode, output, stderr))
-
-        return output
+                self.client = client
+            except paramiko.AuthenticationException as auth_error:
+                self.logger.error(
+                    "Auth failed while connecting to host: %s, error: %s",
+                    self.remote_host, auth_error
+                )
+            except paramiko.SSHException as ssh_error:
+                self.logger.error(
+                    "Failed connecting to host: %s, error: %s",
+                    self.remote_host, ssh_error
+                )
+            except Exception as error:
+                self.logger.error(
+                    "Error connecting to host: %s, error: %s",
+                    self.remote_host, error
+                )
+        return self.client
 
     @contextmanager
     def tunnel(self, local_port, remote_port=None, remote_host="localhost"):
@@ -150,6 +171,21 @@ class SSHHook(BaseHook):
         proc = self.Popen(["-L", tunnel_host, "echo -n ready && cat"],
                           stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
+        ssh_cmd = ["ssh", "{0}@{1}".format(self.username, self.remote_host),
+                   "-o", "ControlMaster=no",
+                   "-o", "UserKnownHostsFile=/dev/null",
+                   "-o", "StrictHostKeyChecking=no"]
+
+        ssh_tunnel_cmd = ["-L", tunnel_host,
+                          "echo -n ready && cat"
+                          ]
+
+        ssh_cmd += ssh_tunnel_cmd
+        self.logger.debug("Creating tunnel with cmd: %s", ssh_cmd)
+
+        proc = subprocess.Popen(ssh_cmd,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
         ready = proc.stdout.read(5)
         assert ready == b"ready", "Did not get 'ready' from remote"
         yield

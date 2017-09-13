@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import logging
 import sys
 
 from airflow import configuration
@@ -26,6 +24,7 @@ except:
     pass
 
 from airflow.exceptions import AirflowException
+from airflow.utils.log.LoggingMixin import LoggingMixin
 
 
 def _integrate_plugins():
@@ -35,22 +34,41 @@ def _integrate_plugins():
         sys.modules[executors_module.__name__] = executors_module
         globals()[executors_module._name] = executors_module
 
-_EXECUTOR = configuration.get('core', 'EXECUTOR')
+def GetDefaultExecutor():
+    """Creates a new instance of the configured executor if none exists and returns it"""
+    global DEFAULT_EXECUTOR
 
-if _EXECUTOR == 'LocalExecutor':
-    DEFAULT_EXECUTOR = LocalExecutor()
-elif _EXECUTOR == 'CeleryExecutor':
-    DEFAULT_EXECUTOR = CeleryExecutor()
-elif _EXECUTOR == 'SequentialExecutor':
-    DEFAULT_EXECUTOR = SequentialExecutor()
-elif _EXECUTOR == 'MesosExecutor':
-    from airflow.contrib.executors.mesos_executor import MesosExecutor
-    DEFAULT_EXECUTOR = MesosExecutor()
-else:
-    # Loading plugins
-    _integrate_plugins()
-    if _EXECUTOR in globals():
-        DEFAULT_EXECUTOR = globals()[_EXECUTOR]()
+    if DEFAULT_EXECUTOR is not None:
+        return DEFAULT_EXECUTOR
+
+    executor_name = configuration.get('core', 'EXECUTOR')
+
+    DEFAULT_EXECUTOR = _get_executor(executor_name)
+
+    log = LoggingMixin().logger
+    log.info("Using executor %s", executor_name)
+
+    return DEFAULT_EXECUTOR
+
+
+def _get_executor(executor_name):
+    """
+    Creates a new instance of the named executor. In case the executor name is not know in airflow,
+    look for it in the plugins
+    """
+    if executor_name == 'LocalExecutor':
+        return LocalExecutor()
+    elif executor_name == 'SequentialExecutor':
+        return SequentialExecutor()
+    elif executor_name == 'CeleryExecutor':
+        from airflow.executors.celery_executor import CeleryExecutor
+        return CeleryExecutor()
+    elif executor_name == 'DaskExecutor':
+        from airflow.executors.dask_executor import DaskExecutor
+        return DaskExecutor()
+    elif executor_name == 'MesosExecutor':
+        from airflow.contrib.executors.mesos_executor import MesosExecutor
+        return MesosExecutor()
     else:
         raise AirflowException("Executor {0} not supported.".format(_EXECUTOR))
 

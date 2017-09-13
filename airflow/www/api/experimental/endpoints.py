@@ -11,12 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
-
 import airflow.api
 
 from airflow.api.common.experimental import trigger_dag as trigger
 from airflow.exceptions import AirflowException
+from airflow.utils.log.LoggingMixin import LoggingMixin
 from airflow.www.app import csrf
 
 from flask import (
@@ -25,7 +24,7 @@ from flask import (
 )
 from datetime import datetime
 
-_log = logging.getLogger(__name__)
+_log = LoggingMixin().logger
 
 requires_authentication = airflow.api.api_auth.requires_authentication
 

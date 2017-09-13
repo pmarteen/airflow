@@ -11,13 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from builtins import range
 
 from airflow import configuration
+from airflow.utils.log.LoggingMixin import LoggingMixin
 from airflow.utils.state import State
-from airflow.utils.logging import LoggingMixin
-from airflow.settings import Stats
 
 PARALLELISM = configuration.getint('core', 'PARALLELISM')
 
@@ -48,7 +46,7 @@ class BaseExecutor(LoggingMixin):
     def queue_command(self, task_instance, command, priority=1, queue=None):
         key = task_instance.key
         if key not in self.queued_tasks and key not in self.running:
-            self.logger.info("Adding to queue: {}".format(command))
+            self.logger.info("Adding to queue: %s", command)
             self.queued_tasks[key] = (command, priority, queue, task_instance)
 
     def queue_task_instance(
@@ -101,12 +99,9 @@ class BaseExecutor(LoggingMixin):
         else:
             open_slots = self.parallelism - len(self.running)
 
-        self.logger.debug("{} running task instances".format(len(self.running)))
-        Stats.incr('{}.running'.format(self.__class__.__name__), len(self.running))
-        self.logger.debug("{} in queue".format(len(self.queued_tasks)))
-        Stats.incr('{}.queued'.format(self.__class__.__name__), len(self.queued_tasks))
-        self.logger.debug("{} open slots".format(open_slots))
-        Stats.incr('{}.open_slots'.format(self.__class__.__name__), open_slots)
+        self.logger.debug("%s running task instances", len(self.running))
+        self.logger.debug("%s in queue", len(self.queued_tasks))
+        self.logger.debug("%s open slots", open_slots)
 
         sorted_queue = sorted(
             [(k, v) for k, v in self.queued_tasks.items()],
@@ -128,11 +123,12 @@ class BaseExecutor(LoggingMixin):
                 self.execute_async(key, command=command, queue=queue)
             else:
                 self.logger.debug(
-                    'Task is already running, not sending to '
-                    'executor: {}'.format(key))
+                    'Task is already running, not sending to executor: %s',
+                    key
+                )
 
         # Calling child class sync method
-        self.logger.debug("Calling the {} sync method".format(self.__class__))
+        self.logger.debug("Calling the %s sync method", self.__class__)
         self.sync()
 
     def change_state(self, key, state):

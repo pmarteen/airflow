@@ -27,7 +27,9 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from airflow import configuration as conf
+from airflow.utils.log.LoggingMixin import LoggingMixin
 
+log = LoggingMixin().logger
 
 class BaseStatsLogger(object):
 
@@ -144,9 +146,25 @@ def policy(task_instance):
 
 
 def configure_logging(log_format=LOG_FORMAT):
-    logging.root.handlers = []
-    logging.basicConfig(
-        format=log_format, stream=sys.stdout, level=LOGGING_LEVEL)
+
+    def _configure_logging(logging_level):
+        global LOGGING_LEVEL
+        logging.root.handlers = []
+        logging.basicConfig(
+            format=log_format, stream=sys.stdout, level=logging_level)
+        LOGGING_LEVEL = logging_level
+
+    if "logging_level" in conf.as_dict()["core"]:
+        logging_level = conf.get('core', 'LOGGING_LEVEL').upper()
+    else:
+        logging_level = LOGGING_LEVEL
+    try:
+        _configure_logging(logging_level)
+    except ValueError:
+        logging.warning(
+            "Logging level %s is not defined. Use default.", logging_level
+        )
+        _configure_logging(logging.INFO)
 
 
 def configure_vars():
@@ -176,13 +194,28 @@ def configure_orm(disable_connection_pool=False):
 
 try:
     from airflow_local_settings import *
-    logging.info("Loaded airflow_local_settings.")
+    log.info("Loaded airflow_local_settings.")
 except:
     pass
 
 configure_logging()
 configure_vars()
 configure_orm()
+
+# TODO: Unify airflow logging setups. Please see AIRFLOW-1457.
+logging_config_path = conf.get('core', 'logging_config_path')
+try:
+    from logging_config_path import LOGGING_CONFIG
+    log.debug("Successfully imported user-defined logging config.")
+except Exception as e:
+    # Import default logging configurations.
+    log.debug(
+        "Unable to load custom logging config file: %s. Using default airflow logging config instead",
+        e
+    )
+    from airflow.config_templates.default_airflow_logging import \
+        DEFAULT_LOGGING_CONFIG as LOGGING_CONFIG
+logging.config.dictConfig(LOGGING_CONFIG)
 
 # Const stuff
 

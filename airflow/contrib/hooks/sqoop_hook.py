@@ -16,17 +16,14 @@
 """
 This module contains a sqoop 1 hook
 """
-
-from airflow.hooks.base_hook import BaseHook
-from airflow.exceptions import AirflowException
-
-import logging
 import subprocess
 
-log = logging.getLogger(__name__)
+from airflow.exceptions import AirflowException
+from airflow.hooks.base_hook import BaseHook
+from airflow.utils.log.LoggingMixin import LoggingMixin
 
 
-class SqoopHook(BaseHook):
+class SqoopHook(BaseHook, LoggingMixin):
     """
     This Hook is a wrapper around the sqoop 1 binary. To be able to use te hook
     it is required that "sqoop" is in the PATH.
@@ -59,7 +56,15 @@ class SqoopHook(BaseHook):
     def get_conn(self):
         pass
 
-    def Popen(self, cmd, export=False, **kwargs):  # noqa
+    def cmd_mask_password(self, cmd):
+        try:
+            password_index = cmd.index('--password')
+            cmd[password_index + 1] = 'MASKED'
+        except ValueError:
+            self.logger.debug("No password in sqoop cmd")
+        return cmd
+
+    def Popen(self, cmd, **kwargs):
         """
         Remote Popen
 
@@ -67,10 +72,23 @@ class SqoopHook(BaseHook):
         :param kwargs: extra arguments to Popen (see subprocess.Popen)
         :return: handle to subprocess
         """
-        prefixed_cmd = self._prepare_command(cmd, export=export)
-        return subprocess.Popen(prefixed_cmd, **kwargs)
+        self.logger.info("Executing command: %s", ' '.join(cmd))
+        sp = subprocess.Popen(cmd,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT,
+                              **kwargs)
 
-    def _prepare_command(self, cmd, export=False):
+        for line in iter(sp.stdout):
+            self.logger.info(line.strip())
+
+        sp.wait()
+
+        self.logger.info("Command exited with return code %s", sp.returncode)
+
+        if sp.returncode:
+            raise AirflowException("Sqoop command failed: %s", ' '.join(cmd))
+
+    def _prepare_command(self, export=False):
         if export:
             connection_cmd = ["sqoop", "export", "--verbose"]
         else:
