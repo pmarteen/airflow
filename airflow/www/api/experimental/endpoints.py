@@ -15,7 +15,7 @@ import airflow.api
 
 from airflow.api.common.experimental import trigger_dag as trigger
 from airflow.exceptions import AirflowException
-from airflow.utils.log.LoggingMixin import LoggingMixin
+from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.www.app import csrf
 
 from flask import (
@@ -24,7 +24,7 @@ from flask import (
 )
 from datetime import datetime
 
-_log = LoggingMixin().logger
+_log = LoggingMixin().log
 
 requires_authentication = airflow.api.api_auth.requires_authentication
 

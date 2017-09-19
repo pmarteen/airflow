@@ -24,7 +24,7 @@ except:
     pass
 
 from airflow.exceptions import AirflowException
-from airflow.utils.log.LoggingMixin import LoggingMixin
+from airflow.utils.log.logging_mixin import LoggingMixin
 
 
 def _integrate_plugins():
@@ -45,7 +45,7 @@ def GetDefaultExecutor():
 
     DEFAULT_EXECUTOR = _get_executor(executor_name)
 
-    log = LoggingMixin().logger
+    log = LoggingMixin().log
     log.info("Using executor %s", executor_name)
 
     return DEFAULT_EXECUTOR

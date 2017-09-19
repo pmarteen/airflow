@@ -76,7 +76,7 @@ DEFAULT_TARGET_PARTITION_SIZE = 5000000
         while running:
             req_status = requests.get("{0}/{1}/status".format(url, druid_task_id))
 
-            self.logger.info("Job still running for %s seconds...", sec)
+            self.log.info("Job still running for %s seconds...", sec)
 
             sec = sec + 1
 
@@ -95,4 +95,4 @@ DEFAULT_TARGET_PARTITION_SIZE = 5000000
             else:
                 raise AirflowException('Could not get status of the job, got %s', status)
 
-        self.logger.info('Successful index')
+        self.log.info('Successful index')

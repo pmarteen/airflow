@@ -77,7 +77,7 @@ from airflow.utils.operator_resources import Resources
 from airflow.utils.state import State
 from airflow.utils.timeout import timeout
 from airflow.utils.trigger_rule import TriggerRule
-from airflow.utils.log.LoggingMixin import LoggingMixin
+from airflow.utils.log.logging_mixin import LoggingMixin
 
 Base = declarative_base()
 ID_LEN = 250
@@ -199,7 +199,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             include_examples=configuration.getboolean('core', 'LOAD_EXAMPLES')):
 
         dag_folder = dag_folder or settings.DAGS_FOLDER
-        self.logger.info("Filling up the DagBag from %s", dag_folder)
+        self.log.info("Filling up the DagBag from %s", dag_folder)
         self.dag_folder = dag_folder
         self.dags = {}
         # the file's last modified timestamp when we last read it
@@ -272,7 +272,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                 return found_dags
 
         except Exception as e:
-            self.logger.exception(e)
+            self.log.exception(e)
             return found_dags
 
         mods = []
@@ -284,7 +284,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                         self.file_last_changed[filepath] = file_last_changed_on_disk
                         return found_dags
 
-            self.logger.debug("Importing %s", filepath)
+            self.log.debug("Importing %s", filepath)
             org_mod_name, _ = os.path.splitext(os.path.split(filepath)[-1])
             mod_name = ('unusual_prefix_' +
                         hashlib.sha1(filepath.encode('utf-8')).hexdigest() +
@@ -298,7 +298,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                     m = imp.load_source(mod_name, filepath)
                     mods.append(m)
                 except Exception as e:
-                    self.logger.exception("Failed to import: %s", filepath)
+                    self.log.exception("Failed to import: %s", filepath)
                     self.import_errors[filepath] = str(e)
                     self.file_last_changed[filepath] = file_last_changed_on_disk
 
@@ -309,10 +309,10 @@ class DagBag(BaseDagBag, LoggingMixin):
                 mod_name, ext = os.path.splitext(mod.filename)
                 if not head and (ext == '.py' or ext == '.pyc'):
                     if mod_name == '__init__':
-                        self.logger.warning("Found __init__.%s at root of %s", ext, filepath)
+                        self.log.warning("Found __init__.%s at root of %s", ext, filepath)
                     if safe_mode:
                         with zip_file.open(mod.filename) as zf:
-                            self.logger.debug("Reading %s from %s", mod.filename, filepath)
+                            self.log.debug("Reading %s from %s", mod.filename, filepath)
                             content = zf.read()
                             if not all([s in content for s in (b'DAG', b'airflow')]):
                                 self.file_last_changed[filepath] = (
@@ -328,7 +328,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                         m = importlib.import_module(mod_name)
                         mods.append(m)
                     except Exception as e:
-                        self.logger.exception("Failed to import: %s", filepath)
+                        self.log.exception("Failed to import: %s", filepath)
                         self.import_errors[filepath] = str(e)
                         self.file_last_changed[filepath] = file_last_changed_on_disk
 
@@ -351,11 +351,11 @@ class DagBag(BaseDagBag, LoggingMixin):
         Fails tasks that haven't had a heartbeat in too long
         """
         from airflow.jobs import LocalTaskJob as LJ
-        self.logger.info("Finding 'running' jobs without a recent heartbeat")
+        self.log.info("Finding 'running' jobs without a recent heartbeat")
         TI = TaskInstance
         secs = configuration.getint('scheduler', 'scheduler_zombie_task_threshold')
         limit_dttm = datetime.now() - timedelta(seconds=secs)
-        self.logger.info("Failing jobs without heartbeat after %s", limit_dttm)
+        self.log.info("Failing jobs without heartbeat after %s", limit_dttm)
 
         tis = (
             session.query(TI)
@@ -376,7 +376,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                     task = dag.get_task(ti.task_id)
                     ti.task = task
                     ti.handle_failure("{} killed as zombie".format(str(ti)))
-                    self.logger.info('Marked zombie job %s as failed', ti)
+                    self.log.info('Marked zombie job %s as failed', ti)
                     Stats.incr('zombies_killed')
         session.commit()
 
@@ -396,7 +396,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             subdag.parent_dag = dag
             subdag.is_subdag = True
             self.bag_dag(subdag, parent_dag=dag, root_dag=root_dag)
-        self.logger.debug('Loaded DAG {dag}'.format(**locals()))
+        self.log.debug('Loaded DAG {dag}'.format(**locals()))
 
     def collect_dags(
             self,
@@ -454,7 +454,7 @@ class DagBag(BaseDagBag, LoggingMixin):
                                 str([dag.dag_id for dag in found_dags]),
                             ))
                     except Exception as e:
-                        self.logger.warning(e)
+                        self.log.warning(e)
         Stats.gauge(
             'collect_dags', (datetime.now() - start_dttm).total_seconds(), 1)
         Stats.gauge(
@@ -618,7 +618,7 @@ class Connection(Base):
                 self._password = FERNET.encrypt(bytes(value, 'utf-8')).decode()
                 self.is_encrypted = True
             except AirflowException:
-                self.logger.exception("Failed to load fernet while encrypting value, "
+                self.log.exception("Failed to load fernet while encrypting value, "
                                     "using non-encrypted value.")
                 self._password = value
                 self.is_encrypted = False
@@ -644,7 +644,7 @@ class Connection(Base):
                 self._extra = FERNET.encrypt(bytes(value, 'utf-8')).decode()
                 self.is_extra_encrypted = True
             except AirflowException:
-                self.logger.exception("Failed to load fernet while encrypting value, "
+                self.log.exception("Failed to load fernet while encrypting value, "
                                     "using non-encrypted value.")
                 self._extra = value
                 self.is_extra_encrypted = False
@@ -709,8 +709,8 @@ class Connection(Base):
             try:
                 obj = json.loads(self.extra)
             except Exception as e:
-                self.logger.exception(e)
-                self.logger.error("Failed parsing the json for conn_id %s", self.conn_id)
+                self.log.exception(e)
+                self.log.error("Failed parsing the json for conn_id %s", self.conn_id)
 
         return obj
 
@@ -1002,7 +1002,7 @@ class TaskInstance(Base, LoggingMixin):
         """
         Forces the task instance's state to FAILED in the database.
         """
-        self.logger.error("Recording the task instance as FAILED")
+        self.log.error("Recording the task instance as FAILED")
         self.state = State.FAILED
         session.merge(self)
         session.commit()
@@ -1154,7 +1154,7 @@ class TaskInstance(Base, LoggingMixin):
                 session=session):
             failed = True
             if verbose:
-                self.logger.info(
+                self.log.info(
                     "Dependencies not met for %s, dependency '%s' FAILED: %s",
                     self, dep_status.dep_name, dep_status.reason
                 )
@@ -1163,7 +1163,7 @@ class TaskInstance(Base, LoggingMixin):
             return False
 
         if verbose:
-            self.logger.info("Dependencies all met for %s", self)
+            self.log.info("Dependencies all met for %s", self)
 
         return True
 
@@ -1179,7 +1179,7 @@ class TaskInstance(Base, LoggingMixin):
                     session,
                     dep_context):
 
-                self.logger.debug(
+                self.log.debug(
                     "%s dependency '%s' PASSED: %s, %s",
                     self, dep_status.dep_name, dep_status.passed, dep_status.reason
                 )
@@ -1352,10 +1352,10 @@ class TaskInstance(Base, LoggingMixin):
                    "runtime. Attempt {attempt} of {total}. State set to NONE.").format(
                 attempt=self.try_number + 1,
                 total=self.max_tries + 1)
-            self.logger.warning(hr + msg + hr)
+            self.log.warning(hr + msg + hr)
 
             self.queued_dttm = datetime.now()
-            self.logger.info("Queuing into pool %s", self.pool)
+            self.log.info("Queuing into pool %s", self.pool)
             session.merge(self)
             session.commit()
             return
@@ -1364,12 +1364,12 @@ class TaskInstance(Base, LoggingMixin):
         # the current worker process was blocked on refresh_from_db
         if self.state == State.RUNNING:
             msg = "Task Instance already running {}".format(self)
-            self.logger.warning(msg)
+            self.log.warning(msg)
             session.commit()
             return
 
         # print status message
-        self.logger.info(hr + msg + hr)
+        self.log.info(hr + msg + hr)
         self.try_number += 1
 
         if not test_mode:
@@ -1391,10 +1391,10 @@ class TaskInstance(Base, LoggingMixin):
         if verbose:
             if mark_success:
                 msg = "Marking success for {} on {}".format(self.task, self.execution_date)
-                self.logger.info(msg)
+                self.log.info(msg)
             else:
                 msg = "Executing {} on {}".format(self.task, self.execution_date)
-                self.logger.info(msg)
+                self.log.info(msg)
         return True
 
     @provide_session
@@ -1437,7 +1437,7 @@ class TaskInstance(Base, LoggingMixin):
 
                 def signal_handler(signum, frame):
                     """Setting kill signal handler"""
-                    self.logger.error("Killing subprocess")
+                    self.log.error("Killing subprocess")
                     task_copy.on_kill()
                     raise AirflowException("Task received SIGTERM signal")
                 signal.signal(signal.SIGTERM, signal_handler)
@@ -1494,8 +1494,8 @@ class TaskInstance(Base, LoggingMixin):
             if task.on_success_callback:
                 task.on_success_callback(context)
         except Exception as e3:
-            self.logger.error("Failed when executing success callback")
-            self.logger.exception(e3)
+            self.log.error("Failed when executing success callback")
+            self.log.exception(e3)
 
         session.commit()
 
@@ -1508,7 +1508,7 @@ class TaskInstance(Base, LoggingMixin):
         task_copy.dry_run()
 
     def handle_failure(self, error, test_mode=False, context=None):
-        self.logger.exception(error)
+        self.log.exception(error)
         task = self.task
         session = settings.Session()
         self.end_date = datetime.now()
@@ -1525,21 +1525,21 @@ class TaskInstance(Base, LoggingMixin):
             if task.retries and self.try_number % (task.retries + 1) != 0:
                 stats_incr_helper('task_up_for_retry', 1, task.dag_id, task.task_id)
                 self.state = State.UP_FOR_RETRY
-                self.logger.info('Marking task as UP_FOR_RETRY')
+                self.log.info('Marking task as UP_FOR_RETRY')
                 if task.email_on_retry and task.email:
                     self.email_alert(error, is_retry=True)
             else:
                 stats_incr_helper('task_failed', 1, task.dag_id, task.task_id)
                 self.state = State.FAILED
                 if task.retries:
-                    self.logger.info('All retries failed; marking task as FAILED')
+                    self.log.info('All retries failed; marking task as FAILED')
                 else:
-                    self.logger.info('Marking task as FAILED.')
+                    self.log.info('Marking task as FAILED.')
                 if task.email_on_failure and task.email:
                     self.email_alert(error, is_retry=False)
         except Exception as e2:
-            self.logger.error('Failed to send email to: %s', task.email)
-            self.logger.exception(e2)
+            self.log.error('Failed to send email to: %s', task.email)
+            self.log.exception(e2)
 
         # Handling callbacks pessimistically
         try:
@@ -1548,13 +1548,13 @@ class TaskInstance(Base, LoggingMixin):
             if self.state == State.FAILED and task.on_failure_callback:
                 task.on_failure_callback(context)
         except Exception as e3:
-            self.logger.error("Failed at executing callback")
-            self.logger.exception(e3)
+            self.log.error("Failed at executing callback")
+            self.log.exception(e3)
 
         if not test_mode:
             session.merge(self)
         session.commit()
-        self.logger.error(str(error))
+        self.log.error(str(error))
 
     @provide_session
     def get_template_context(self, session=None):
@@ -1845,7 +1845,7 @@ class Log(Base):
         self.owner = owner or task_owner
 
 
-class SkipMixin(object):
+class SkipMixin(LoggingMixin):
     def skip(self, dag_run, execution_date, tasks):
         """
         Sets tasks instances to skipped from the same dag run.
@@ -1875,7 +1875,7 @@ class SkipMixin(object):
         else:
             assert execution_date is not None, "Execution date is None and no dag run"
 
-            self.logger.warning("No DAG RUN present this should not happen")
+            self.log.warning("No DAG RUN present this should not happen")
             # this is defensive against dag runs that are not complete
             for task in tasks:
                 ti = TaskInstance(task, execution_date=execution_date)
@@ -2077,7 +2077,7 @@ class BaseOperator(LoggingMixin):
         self.email_on_failure = email_on_failure
         self.start_date = start_date
         if start_date and not isinstance(start_date, datetime):
-            self.logger.warning("start_date for %s isn't datetime.datetime", self)
+            self.log.warning("start_date for %s isn't datetime.datetime", self)
         self.end_date = end_date
         if not TriggerRule.is_valid(trigger_rule):
             raise AirflowException(
@@ -2093,7 +2093,7 @@ class BaseOperator(LoggingMixin):
             self.depends_on_past = True
 
         if schedule_interval:
-            self.logger.warning(
+            self.log.warning(
                 "schedule_interval is used for {}, though it has "
                 "been deprecated as a task parameter, you need to "
                 "specify it as a DAG parameter instead",
@@ -2111,7 +2111,7 @@ class BaseOperator(LoggingMixin):
         if isinstance(retry_delay, timedelta):
             self.retry_delay = retry_delay
         else:
-            self.logger.debug("Retry_delay isn't timedelta object, assuming secs")
+            self.log.debug("Retry_delay isn't timedelta object, assuming secs")
             self.retry_delay = timedelta(seconds=retry_delay)
         self.retry_exponential_backoff = retry_exponential_backoff
         self.max_retry_delay = max_retry_delay
@@ -2411,7 +2411,7 @@ class BaseOperator(LoggingMixin):
                 try:
                     setattr(self, attr, env.loader.get_source(env, content)[0])
                 except Exception as e:
-                    self.logger.exception(e)
+                    self.log.exception(e)
         self.prepare_template()
 
     @property
@@ -2532,12 +2532,12 @@ class BaseOperator(LoggingMixin):
                 ignore_ti_state=ignore_ti_state)
 
     def dry_run(self):
-        self.logger.info('Dry run')
+        self.log.info('Dry run')
         for attr in self.template_fields:
             content = getattr(self, attr)
             if content and isinstance(content, six.string_types):
-                self.logger.info('Rendering template for %s', attr)
-                self.logger.info(content)
+                self.log.info('Rendering template for %s', attr)
+                self.log.info(content)
 
     def get_direct_relatives(self, upstream=False):
         """
@@ -3371,8 +3371,7 @@ class DAG(BaseDag):
             d['pickle_len'] = len(pickled)
             d['pickling_duration'] = "{}".format(datetime.now() - dttm)
         except Exception as e:
-            log = LoggingMixin().logger
-            log.debug(e)
+            self.log.debug(e)
             d['is_picklable'] = False
             d['stacktrace'] = traceback.format_exc()
         return d
@@ -3579,11 +3578,10 @@ class DAG(BaseDag):
         orm_dag = session.query(
             DagModel).filter(DagModel.dag_id == dag.dag_id).first()
         if not orm_dag:
-            orm_dag = DagModel(dag_id=dag.dag_id)
-            log = LoggingMixin().logger
-            log.info("Creating ORM DAG for %s", dag.dag_id)
-        orm_dag.fileloc = dag.fileloc
-        orm_dag.is_subdag = dag.is_subdag
+            orm_dag = DagModel(dag_id=self.dag_id)
+            self.log.info("Creating ORM DAG for %s", self.dag_id)
+        orm_dag.fileloc = self.fileloc
+        orm_dag.is_subdag = self.is_subdag
         orm_dag.owners = owner
         orm_dag.is_active = True
         orm_dag.last_scheduler_run = sync_time
@@ -3624,11 +3622,11 @@ class DAG(BaseDag):
         :type expiration_date: datetime
         :return: None
         """
-        logger = LoggingMixin().logger
+        log = LoggingMixin().log
         for dag in session.query(
                 DagModel).filter(DagModel.last_scheduler_run < expiration_date,
                                  DagModel.is_active).all():
-            logger.info(
+            log.info(
                 "Deactivating DAG ID %s since it was last touched by the scheduler at %s",
                 dag.dag_id, dag.last_scheduler_run.isoformat()
             )
@@ -3749,7 +3747,7 @@ class Variable(Base, LoggingMixin):
                 self._val = FERNET.encrypt(bytes(value, 'utf-8')).decode()
                 self.is_encrypted = True
             except AirflowException:
-                self.logger.exception(
+                self.log.exception(
                     "Failed to load fernet while encrypting value, using non-encrypted value."
                 )
                 self._val = value
@@ -3869,7 +3867,7 @@ class XCom(Base, LoggingMixin):
             try:
                 value = json.dumps(value).encode('UTF-8')
             except ValueError:
-                log = LoggingMixin().logger
+                log = LoggingMixin().log
                 log.error("Could not serialize the XCOM value into JSON. "
                           "If you are using pickles instead of JSON "
                           "for XCOM, then you need to enable pickle "
@@ -3937,7 +3935,7 @@ class XCom(Base, LoggingMixin):
                 try:
                     return json.loads(result.value.decode('UTF-8'))
                 except ValueError:
-                    log = LoggingMixin().logger
+                    log = LoggingMixin().log
                     log.error("Could not serialize the XCOM value into JSON. "
                               "If you are using pickles instead of JSON "
                               "for XCOM, then you need to enable pickle "
@@ -3985,7 +3983,7 @@ class XCom(Base, LoggingMixin):
                 try:
                     result.value = json.loads(result.value.decode('UTF-8'))
                 except ValueError:
-                    log = LoggingMixin().logger
+                    log = LoggingMixin().log
                     log.error("Could not serialize the XCOM value into JSON. "
                               "If you are using pickles instead of JSON "
                               "for XCOM, then you need to enable pickle "
@@ -4041,7 +4039,7 @@ class DagStat(Base):
             session.commit()
         except Exception as e:
             session.rollback()
-            log = LoggingMixin().logger
+            log = LoggingMixin().log
             log.warning("Could not update dag stats for %s", dag_id)
             log.exception(e)
 
@@ -4098,7 +4096,7 @@ class DagStat(Base):
             session.commit()
         except Exception as e:
             session.rollback()
-            log = LoggingMixin().logger
+            log = LoggingMixin().log
             log.warning("Could not update dag stat table")
             log.exception(e)
 
@@ -4122,7 +4120,7 @@ class DagStat(Base):
                     session.commit()
                 except Exception as e:
                     session.rollback()
-                    log = LoggingMixin().logger
+                    log = LoggingMixin().log
                     log.warning("Could not create stat record")
                     log.exception(e)
 
@@ -4341,7 +4339,7 @@ class DagRun(Base, LoggingMixin):
 
         tis = self.get_task_instances(session=session)
 
-        self.logger.info("Updating state for %s considering %s task(s)", self, len(tis))
+        self.log.info("Updating state for %s considering %s task(s)", self, len(tis))
 
         for ti in list(tis):
             # skip in db?
@@ -4380,18 +4378,18 @@ class DagRun(Base, LoggingMixin):
             # if all roots finished and at least on failed, the run failed
             if (not unfinished_tasks and
                     any(r.state in (State.FAILED, State.UPSTREAM_FAILED) for r in roots)):
-                self.logger.info('Marking run %s failed', self)
+                self.log.info('Marking run %s failed', self)
                 self.state = State.FAILED
 
             # if all roots succeeded and no unfinished tasks, the run succeeded
             elif not unfinished_tasks and all(r.state in (State.SUCCESS, State.SKIPPED)
                                               for r in roots):
-                self.logger.info('Marking run %s successful', self)
+                self.log.info('Marking run %s successful', self)
                 self.state = State.SUCCESS
 
             # if *all tasks* are deadlocked, the run failed
             elif unfinished_tasks and none_depends_on_past and no_dependencies_met:
-                self.logger.info('Deadlock; marking run %s failed', self)
+                self.log.info('Deadlock; marking run %s failed', self)
                 self.state = State.FAILED
 
             # finally, if the roots aren't done, the dag is still running

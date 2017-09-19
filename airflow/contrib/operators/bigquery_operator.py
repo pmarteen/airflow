@@ -71,7 +71,7 @@ class BigQueryOperator(BaseOperator):
         self.use_legacy_sql = use_legacy_sql
 
     def execute(self, context):
-        self.logger.info('Executing: %s', self.bql)
+        self.log.info('Executing: %s', self.bql)
         hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
                             delegate_to=self.delegate_to)
         conn = hook.get_conn()
