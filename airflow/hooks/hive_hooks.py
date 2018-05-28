@@ -16,14 +16,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
 
 from __future__ import print_function
 from builtins import zip
 from past.builtins import basestring
 
 import unicodecsv as csv
-import itertools
 import re
 import subprocess
 import time
@@ -263,9 +261,9 @@ class HiveCliHook(BaseHook):
                     self.log.info(message)
                     error_loc = re.search('(\d+):(\d+)', message)
                     if error_loc and error_loc.group(1).isdigit():
-                        l = int(error_loc.group(1))
-                        begin = max(l-2, 0)
-                        end = min(l+3, len(query.split('\n')))
+                        lst = int(error_loc.group(1))
+                        begin = max(lst - 2, 0)
+                        end = min(lst + 3, len(query.split('\n')))
                         context = '\n'.join(query.split('\n')[begin:end])
                         self.log.info("Context :\n %s", context)
                 else:
@@ -633,9 +631,9 @@ class HiveMetastoreHook(BaseHook):
         False
         """
         try:
-            t = self.get_table(table_name, db)
+            self.get_table(table_name, db)
             return True
-        except Exception as e:
+        except Exception:
             return False
 
 
@@ -660,7 +658,8 @@ class HiveServer2Hook(BaseHook):
         # impyla uses GSSAPI instead of KERBEROS as a auth_mechanism identifier
         if auth_mechanism == 'KERBEROS':
             self.log.warning(
-                "Detected deprecated 'KERBEROS' for authMechanism for %s. Please use 'GSSAPI' instead",
+                "Detected deprecated 'KERBEROS' for "
+                "authMechanism for %s. Please use 'GSSAPI' instead",
                 self.hiveserver2_conn_id
             )
             auth_mechanism = 'GSSAPI'
