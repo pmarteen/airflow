@@ -124,9 +124,9 @@ class DockerOperatorTestCase(unittest.TestCase):
         with self.assertRaises(AirflowException):
             operator.execute(None)
 
-    @unittest.skipIf(mock is None, 'mock package not present')
-    def test_on_kill(self):
-        client_mock = mock.Mock(spec=Client)
+    @staticmethod
+    def test_on_kill():
+        client_mock = mock.Mock(spec=APIClient)
 
         operator = DockerOperator(image='ubuntu', owner='unittest', task_id='unittest')
         operator.cli = client_mock

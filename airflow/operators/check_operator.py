@@ -143,8 +143,16 @@ class ValueCheckOperator(BaseOperator):
         records = self.get_db_hook().get_first(self.sql)
         if not records:
             raise AirflowException("The query returned None")
-        test_results = []
-        except_temp = ("Test failed.\nPass value:{self.pass_value}\n"
+
+        pass_value_conv = _convert_to_float_if_possible(self.pass_value)
+        is_numeric_value_check = isinstance(pass_value_conv, float)
+
+        tolerance_pct_str = None
+        if self.tol is not None:
+            tolerance_pct_str = str(self.tol * 100) + '%'
+
+        except_temp = ("Test failed.\nPass value:{pass_value_conv}\n"
+                       "Tolerance:{tolerance_pct_str}\n"
                        "Query:\n{self.sql}\nResults:\n{records!s}")
         if not self.is_numeric_value_check:
             tests = [str(r) == self.pass_value for r in records]

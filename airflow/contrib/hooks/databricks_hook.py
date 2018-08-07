@@ -64,7 +64,8 @@ class DatabricksHook(BaseHook, LoggingMixin):
         assert retry_limit >= 1, 'Retry limit must be greater than equal to 1'
         self.retry_limit = retry_limit
 
-    def _parse_host(self, host):
+    @staticmethod
+    def _parse_host(host):
         """
         The purpose of this function is to be robust to improper connections
         settings provided by users, specifically in the host field.

@@ -35,78 +35,40 @@ class GoogleCloudStorageToBigQueryOperator(BaseOperator):
     ui_color = '#f0eee4'
 
     @apply_defaults
-    def __init__(
-        self,
-        bucket,
-        source_objects,
-        destination_project_dataset_table,
-        schema_fields=None,
-        schema_object=None,
-        source_format='CSV',
-        create_disposition='CREATE_IF_NEEDED',
-        skip_leading_rows=0,
-        write_disposition='WRITE_EMPTY',
-        field_delimiter=',',
-        max_id_key=None,
-        bigquery_conn_id='bigquery_default',
-        google_cloud_storage_conn_id='google_cloud_storage_default',
-        delegate_to=None,
-        schema_update_options=(),
-        *args,
-        **kwargs):
-        """
-        The schema to be used for the BigQuery table may be specified in one of
-        two ways. You may either directly pass the schema fields in, or you may
-        point the operator to a Google cloud storage object name. The object in
-        Google cloud storage must be a JSON file with the schema fields in it.
+    def __init__(self,
+                 bucket,
+                 source_objects,
+                 destination_project_dataset_table,
+                 schema_fields=None,
+                 schema_object=None,
+                 source_format='CSV',
+                 compression='NONE',
+                 create_disposition='CREATE_IF_NEEDED',
+                 skip_leading_rows=0,
+                 write_disposition='WRITE_EMPTY',
+                 field_delimiter=',',
+                 max_bad_records=0,
+                 quote_character=None,
+                 ignore_unknown_values=False,
+                 allow_quoted_newlines=False,
+                 allow_jagged_rows=False,
+                 max_id_key=None,
+                 bigquery_conn_id='bigquery_default',
+                 google_cloud_storage_conn_id='google_cloud_default',
+                 delegate_to=None,
+                 schema_update_options=(),
+                 src_fmt_configs=None,
+                 external_table=False,
+                 time_partitioning=None,
+                 *args, **kwargs):
 
-        :param bucket: The bucket to load from.
-        :type bucket: string
-        :param source_objects: List of Google cloud storage URIs to load from.
-        :type object: list
-        :param destination_project_dataset_table: The dotted (<project>.)<dataset>.<table>
-            BigQuery table to load data into. If <project> is not included, project will
-            be the project defined in the connection json.
-        :type destination_project_dataset_table: string
-        :param schema_fields: If set, the schema field list as defined here:
-            https://cloud.google.com/bigquery/docs/reference/v2/jobs#configuration.load
-        :type schema_fields: list
-        :param schema_object: If set, a GCS object path pointing to a .json file that
-            contains the schema for the table.
-        :param schema_object: string
-        :param source_format: File format to export.
-        :type source_format: string
-        :param create_disposition: The create disposition if the table doesn't exist.
-        :type create_disposition: string
-        :param skip_leading_rows: Number of rows to skip when loading from a CSV.
-        :type skip_leading_rows: int
-        :param write_disposition: The write disposition if the table already exists.
-        :type write_disposition: string
-        :param field_delimiter: The delimiter to use when loading from a CSV.
-        :type field_delimiter: string
-        :param max_id_key: If set, the name of a column in the BigQuery table
-            that's to be loaded. Thsi will be used to select the MAX value from
-            BigQuery after the load occurs. The results will be returned by the
-            execute() command, which in turn gets stored in XCom for future
-            operators to use. This can be helpful with incremental loads--during
-            future executions, you can pick up from the max ID.
-        :type max_id_key: string
-        :param bigquery_conn_id: Reference to a specific BigQuery hook.
-        :type bigquery_conn_id: string
-        :param google_cloud_storage_conn_id: Reference to a specific Google
-            cloud storage hook.
-        :type google_cloud_storage_conn_id: string
-        :param delegate_to: The account to impersonate, if any. For this to
-            work, the service account making the request must have domain-wide
-            delegation enabled.
-        :type delegate_to: string
-        :param schema_update_options: Allows the schema of the desitination 
-            table to be updated as a side effect of the load job.
-        :type schema_update_options: list
-        """
         super(GoogleCloudStorageToBigQueryOperator, self).__init__(*args, **kwargs)
 
         # GCS config
+        if src_fmt_configs is None:
+            src_fmt_configs = {}
+        if time_partitioning is None:
+            time_partitioning = {}
         self.bucket = bucket
         self.source_objects = source_objects
         self.schema_object = schema_object

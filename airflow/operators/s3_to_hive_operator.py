@@ -259,8 +259,8 @@ class S3ToHiveTransfer(BaseOperator):
         else:
             return True
 
+    @staticmethod
     def _delete_top_row_and_compress(
-            self,
             input_file_name,
             output_file_ext,
             dest_dir):
@@ -273,7 +273,7 @@ class S3ToHiveTransfer(BaseOperator):
 
         os_fh_output, fn_output = \
             tempfile.mkstemp(suffix=output_file_ext, dir=dest_dir)
-        with open(input_file_name, 'rb') as f_in,\
+        with open(input_file_name, 'rb') as f_in, \
                 open_fn(fn_output, 'wb') as f_out:
             f_in.seek(0)
             next(f_in)

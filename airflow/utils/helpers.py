@@ -118,6 +118,28 @@ def as_tuple(obj):
         return tuple([obj])
 
 
+def chunks(items, chunk_size):
+    """
+    Yield successive chunks of a given size from a list of items
+    """
+    if chunk_size <= 0:
+        raise ValueError('Chunk size must be a positive integer')
+    for i in range(0, len(items), chunk_size):
+        yield items[i:i + chunk_size]
+
+
+def reduce_in_chunks(fn, iterable, initializer, chunk_size=0):
+    """
+    Reduce the given list of items by splitting it into chunks
+    of the given size and passing each chunk through the reducer
+    """
+    if len(iterable) == 0:
+        return initializer
+    if chunk_size == 0:
+        chunk_size = len(iterable)
+    return reduce(fn, chunks(iterable, chunk_size), initializer)
+
+
 def as_flattened_list(iterable):
     """
     Return an iterable with one level flattened

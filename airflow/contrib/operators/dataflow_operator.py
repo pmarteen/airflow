@@ -185,3 +185,48 @@ class DataFlowPythonOperator(BaseOperator):
         hook.start_python_dataflow(
             self.task_id, formatted_options,
             self.py_file, self.py_options)
+
+
+class GoogleCloudBucketHelper(object):
+    """GoogleCloudStorageHook helper class to download GCS object."""
+    GCS_PREFIX_LENGTH = 5
+
+    def __init__(self,
+                 gcp_conn_id='google_cloud_default',
+                 delegate_to=None):
+        self._gcs_hook = GoogleCloudStorageHook(gcp_conn_id, delegate_to)
+
+    def google_cloud_to_local(self, file_name):
+        """
+        Checks whether the file specified by file_name is stored in Google Cloud
+        Storage (GCS), if so, downloads the file and saves it locally. The full
+        path of the saved file will be returned. Otherwise the local file_name
+        will be returned immediately.
+
+        :param file_name: The full path of input file.
+        :type file_name: string
+        :return: The full path of local file.
+        :type: string
+        """
+        if not file_name.startswith('gs://'):
+            return file_name
+
+        # Extracts bucket_id and object_id by first removing 'gs://' prefix and
+        # then split the remaining by path delimiter '/'.
+        path_components = file_name[self.GCS_PREFIX_LENGTH:].split('/')
+        if path_components < 2:
+            raise Exception(
+                'Invalid Google Cloud Storage (GCS) object path: {}.'
+                .format(file_name))
+
+        bucket_id = path_components[0]
+        object_id = '/'.join(path_components[1:])
+        local_file = '/tmp/dataflow{}-{}'.format(str(uuid.uuid1())[:8],
+                                                 path_components[-1])
+        file_size = self._gcs_hook.download(bucket_id, object_id, local_file)
+
+        if file_size > 0:
+            return local_file
+        raise Exception(
+            'Failed to download Google Cloud Storage GCS object: {}'
+            .format(file_name))

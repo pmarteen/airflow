@@ -134,8 +134,9 @@ class SalesforceHook(BaseHook, LoggingMixin):
 
         return [f['name'] for f in desc['fields']]
 
-    def _build_field_list(self, fields):
-        # join all of the fields in a comma seperated list
+    @staticmethod
+    def _build_field_list(fields):
+        # join all of the fields in a comma separated list
         return ",".join(fields)
 
     def get_object_from_salesforce(self, obj, fields):

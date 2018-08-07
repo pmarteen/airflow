@@ -2086,6 +2086,47 @@ class WebHDFSHookTest(unittest.TestCase):
         c = WebHDFSHook(proxy_user='someone')
         assert c.proxy_user == 'someone'
 
+@unittest.skipIf(HDFSHook is None,
+                 "Skipping test because HDFSHook is not installed")
+class HDFSHookTest(unittest.TestCase):
+    def setUp(self):
+        configuration.load_test_config()
+        os.environ['AIRFLOW_CONN_HDFS_DEFAULT'] = 'hdfs://localhost:8020'
+
+    def test_get_client(self):
+        client = HDFSHook(proxy_user='foo').get_conn()
+        self.assertIsInstance(client, snakebite.client.Client)
+        self.assertEqual('localhost', client.host)
+        self.assertEqual(8020, client.port)
+        self.assertEqual('foo', client.service.channel.effective_user)
+
+    @mock.patch('airflow.hooks.hdfs_hook.AutoConfigClient')
+    @mock.patch('airflow.hooks.hdfs_hook.HDFSHook.get_connections')
+    def test_get_autoconfig_client(self, mock_get_connections,
+                                   MockAutoConfigClient):
+        c = models.Connection(conn_id='hdfs', conn_type='hdfs',
+                              host='localhost', port=8020, login='foo',
+                              extra=json.dumps({'autoconfig': True}))
+        mock_get_connections.return_value = [c]
+        HDFSHook(hdfs_conn_id='hdfs').get_conn()
+        MockAutoConfigClient.assert_called_once_with(effective_user='foo',
+                                                     use_sasl=False)
+
+    @mock.patch('airflow.hooks.hdfs_hook.AutoConfigClient')
+    def test_get_autoconfig_client_no_conn(self, MockAutoConfigClient):
+        HDFSHook(hdfs_conn_id='hdfs_missing', autoconfig=True).get_conn()
+        MockAutoConfigClient.assert_called_once_with(effective_user=None,
+                                                     use_sasl=False)
+
+    @mock.patch('airflow.hooks.hdfs_hook.HDFSHook.get_connections')
+    def test_get_ha_client(self, mock_get_connections):
+        c1 = models.Connection(conn_id='hdfs_default', conn_type='hdfs',
+                               host='localhost', port=8020)
+        c2 = models.Connection(conn_id='hdfs_default', conn_type='hdfs',
+                               host='localhost2', port=8020)
+        mock_get_connections.return_value = [c1, c2]
+        client = HDFSHook().get_conn()
+        self.assertIsInstance(client, snakebite.client.HAClient)
 
 send_email_test = mock.Mock()
 

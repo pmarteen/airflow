@@ -174,7 +174,8 @@ class GCSTaskHandler(FileTaskHandler, LoggingMixin):
         except:
             self.log.error('Could not write logs to %s', remote_log_location)
 
-    def parse_gcs_url(self, gsurl):
+    @staticmethod
+    def parse_gcs_url(gsurl):
         """
         Given a Google Cloud Storage URL (gs://<bucket>/<blob>), returns a
         tuple containing the corresponding bucket and blob.

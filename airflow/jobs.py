@@ -1115,6 +1115,21 @@ class SchedulerJob(BaseJob):
                     )
                     continue
 
+                task_concurrency = simple_dag.get_task_special_arg(
+                    task_instance.task_id,
+                    'task_concurrency')
+                if task_concurrency is not None:
+                    num_running = task_concurrency_map[
+                        (task_instance.dag_id, task_instance.task_id)
+                    ]
+
+                    if num_running >= task_concurrency:
+                        self.log.info("Not executing %s since the task concurrency for"
+                                      " this task has been reached.", task_instance)
+                        continue
+                    else:
+                        task_concurrency_map[(task_instance.dag_id, task_instance.task_id)] += 1
+
                 if self.executor.has_task(task_instance):
                     self.log.debug(
                         "Not handling task %s as the executor reports it is running",

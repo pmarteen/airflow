@@ -26,7 +26,80 @@ from time import sleep
 import psutil
 
 from airflow import settings
-from airflow.bin.cli import get_num_ready_workers_running
+from airflow.bin.cli import get_num_ready_workers_running, run, get_dag
+from airflow.models import TaskInstance
+from airflow.utils import timezone
+from airflow.utils.state import State
+from airflow.settings import Session
+from airflow import models
+
+import os
+
+dag_folder_path = '/'.join(os.path.realpath(__file__).split('/')[:-1])
+
+TEST_DAG_FOLDER = os.path.join(
+    os.path.dirname(dag_folder_path), 'dags')
+TEST_DAG_ID = 'unit_tests'
+
+
+def reset(dag_id):
+    session = Session()
+    tis = session.query(models.TaskInstance).filter_by(dag_id=dag_id)
+    tis.delete()
+    session.commit()
+    session.close()
+
+
+def create_mock_args(
+    task_id,
+    dag_id,
+    subdir,
+    execution_date,
+    task_params=None,
+    dry_run=False,
+    queue=None,
+    pool=None,
+    priority_weight_total=None,
+    retries=0,
+    local=True,
+    mark_success=False,
+    ignore_all_dependencies=False,
+    ignore_depends_on_past=False,
+    ignore_dependencies=False,
+    force=False,
+    run_as_user=None,
+    executor_config=None,
+    cfg_path=None,
+    pickle=None,
+    raw=None,
+    interactive=None,
+):
+    if executor_config is None:
+        executor_config = {}
+    args = MagicMock(spec=Namespace)
+    args.task_id = task_id
+    args.dag_id = dag_id
+    args.subdir = subdir
+    args.task_params = task_params
+    args.execution_date = execution_date
+    args.dry_run = dry_run
+    args.queue = queue
+    args.pool = pool
+    args.priority_weight_total = priority_weight_total
+    args.retries = retries
+    args.local = local
+    args.run_as_user = run_as_user
+    args.executor_config = executor_config
+    args.cfg_path = cfg_path
+    args.pickle = pickle
+    args.raw = raw
+    args.mark_success = mark_success
+    args.ignore_all_dependencies = ignore_all_dependencies
+    args.ignore_depends_on_past = ignore_depends_on_past
+    args.ignore_dependencies = ignore_dependencies
+    args.force = force
+    args.interactive = interactive
+    return args
 
 
 class TestCLI(unittest.TestCase):

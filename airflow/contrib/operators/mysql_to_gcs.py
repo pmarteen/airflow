@@ -188,8 +188,8 @@ class MySqlToGoogleCloudStorageOperator(BaseOperator):
         for object, tmp_file_handle in files_to_upload.items():
             hook.upload(self.bucket, object, tmp_file_handle.name, 'application/json')
 
-    @classmethod
-    def convert_types(cls, value):
+    @staticmethod
+    def _convert_types(schema, col_type_dict, row):
         """
         Takes a value from MySQLdb, and converts it to a value that's safe for
         JSON/Google cloud storage/BigQuery. Dates are converted to UTC seconds.
