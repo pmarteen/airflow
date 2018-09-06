@@ -41,17 +41,29 @@ class GoogleCloudStorageObjectSensor(BaseSensorOperator):
         Create a new GoogleCloudStorageObjectSensor.
 
         :param bucket: The Google cloud storage bucket where the object is.
-        :type bucket: string
+        :type bucket: str
         :param object: The name of the object to check in the Google cloud
             storage bucket.
-        :type object: string
+        :type object: str
         :param google_cloud_storage_conn_id: The connection ID to use when
             connecting to Google cloud storage.
-        :type google_cloud_storage_conn_id: string
+        :type google_cloud_storage_conn_id: str
         :param delegate_to: The account to impersonate, if any.
-            For this to work, the service account making the request must have domain-wide delegation enabled.
-        :type delegate_to: string
-        """
+            For this to work, the service account making the request must have
+            domain-wide delegation enabled.
+        :type delegate_to: str
+    """
+    template_fields = ('bucket', 'object')
+    ui_color = '#f0eee4'
+
+    @apply_defaults
+    def __init__(self,
+                 bucket,
+                 object,  # pylint:disable=redefined-builtin
+                 google_cloud_conn_id='google_cloud_default',
+                 delegate_to=None,
+                 *args, **kwargs):
+
         super(GoogleCloudStorageObjectSensor, self).__init__(*args, **kwargs)
         self.bucket = bucket
         self.object = object
@@ -97,22 +109,35 @@ class GoogleCloudStorageObjectUpdatedSensor(BaseSensorOperator):
         Create a new GoogleCloudStorageObjectUpdatedSensor.
 
         :param bucket: The Google cloud storage bucket where the object is.
-        :type bucket: string
+        :type bucket: str
         :param object: The name of the object to download in the Google cloud
             storage bucket.
-        :type object: string
+        :type object: str
         :param ts_func: Callback for defining the update condition. The default callback
             returns execution_date + schedule_interval. The callback takes the context
             as parameter.
         :type ts_func: function
         :param google_cloud_storage_conn_id: The connection ID to use when
             connecting to Google cloud storage.
-        :type google_cloud_storage_conn_id: string
+        :type google_cloud_storage_conn_id: str
         :param delegate_to: The account to impersonate, if any.
             For this to work, the service account making the request must have domain-wide
             delegation enabled.
-        :type delegate_to: string
-        """
+        :type delegate_to: str
+    """
+    template_fields = ('bucket', 'object')
+    template_ext = ('.sql',)
+    ui_color = '#f0eee4'
+
+    @apply_defaults
+    def __init__(self,
+                 bucket,
+                 object,  # pylint:disable=redefined-builtin
+                 ts_func=ts_function,
+                 google_cloud_conn_id='google_cloud_default',
+                 delegate_to=None,
+                 *args, **kwargs):
+
         super(GoogleCloudStorageObjectUpdatedSensor, self).__init__(*args, **kwargs)
         self.bucket = bucket
         self.object = object
@@ -126,3 +151,46 @@ class GoogleCloudStorageObjectUpdatedSensor(BaseSensorOperator):
             google_cloud_storage_conn_id=self.google_cloud_conn_id,
             delegate_to=self.delegate_to)
         return hook.is_updated_after(self.bucket, self.object, self.ts_func(context))
+
+
+class GoogleCloudStoragePrefixSensor(BaseSensorOperator):
+    """
+    Checks for the existence of a files at prefix in Google Cloud Storage bucket.
+    Create a new GoogleCloudStorageObjectSensor.
+
+        :param bucket: The Google cloud storage bucket where the object is.
+        :type bucket: str
+        :param prefix: The name of the prefix to check in the Google cloud
+            storage bucket.
+        :type prefix: str
+        :param google_cloud_storage_conn_id: The connection ID to use when
+            connecting to Google cloud storage.
+        :type google_cloud_storage_conn_id: str
+        :param delegate_to: The account to impersonate, if any.
+            For this to work, the service account making the request must have
+            domain-wide delegation enabled.
+        :type delegate_to: str
+    """
+    template_fields = ('bucket', 'prefix')
+    ui_color = '#f0eee4'
+
+    @apply_defaults
+    def __init__(self,
+                 bucket,
+                 prefix,
+                 google_cloud_conn_id='google_cloud_default',
+                 delegate_to=None,
+                 *args, **kwargs):
+        super(GoogleCloudStoragePrefixSensor, self).__init__(*args, **kwargs)
+        self.bucket = bucket
+        self.prefix = prefix
+        self.google_cloud_conn_id = google_cloud_conn_id
+        self.delegate_to = delegate_to
+
+    def poke(self, context):
+        self.log.info('Sensor checks existence of objects: %s, %s',
+                      self.bucket, self.prefix)
+        hook = GoogleCloudStorageHook(
+            google_cloud_storage_conn_id=self.google_cloud_conn_id,
+            delegate_to=self.delegate_to)
+        return bool(hook.list(self.bucket, prefix=self.prefix))

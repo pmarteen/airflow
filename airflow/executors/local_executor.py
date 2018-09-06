@@ -57,6 +57,53 @@ from airflow.utils.state import State
 
 PARALLELISM = configuration.get('core', 'PARALLELISM')
 
+class LocalWorker(multiprocessing.Process, LoggingMixin):
+
+    """LocalWorker Process implementation to run airflow commands. Executes the given
+    command and puts the result into a result queue when done, terminating execution."""
+
+    def __init__(self, result_queue):
+        """
+        :param result_queue: the queue to store result states tuples (key, State)
+        :type result_queue: multiprocessing.Queue
+        """
+        super(LocalWorker, self).__init__()
+        self.daemon = True
+        self.result_queue = result_queue
+        self.key = None
+        self.command = None
+
+    def execute_work(self, key, command):
+        """
+        Executes command received and stores result state in queue.
+        :param key: the key to identify the TI
+        :type key: Tuple(dag_id, task_id, execution_date)
+        :param command: the command to execute
+        :type command: str
+        """
+        if key is None:
+            return
+        self.log.info("%s running %s", self.__class__.__name__, command)
+        try:
+            subprocess.check_call(command, close_fds=True)
+            state = State.SUCCESS
+        except subprocess.CalledProcessError as e:
+            state = State.FAILED
+            self.log.error("Failed to execute task %s.", str(e))
+            # TODO: Why is this commented out?
+            # raise e
+        self.result_queue.put((key, state))
+
+    def run(self):
+        self.execute_work(self.key, self.command)
+        time.sleep(1)
+
+
+class QueuedLocalWorker(LocalWorker):
+
+    """LocalWorker implementation that is waiting for tasks from a queue and will
+    continue executing commands as they become available in the queue. It will terminate
+    execution once the poison token is found."""
 
 class LocalWorker(multiprocessing.Process, LoggingMixin):
     def __init__(self, task_queue, result_queue):
@@ -93,6 +140,89 @@ class LocalExecutor(BaseExecutor):
     multiprocessing Python library and queues to parallelize the execution
     of tasks.
     """
+
+    class _UnlimitedParallelism(object):
+        """Implements LocalExecutor with unlimited parallelism, starting one process
+        per each command to execute."""
+
+        def __init__(self, executor):
+            """
+            :param executor: the executor instance to implement.
+            :type executor: LocalExecutor
+            """
+            self.executor = executor
+
+        def start(self):
+            self.executor.workers_used = 0
+            self.executor.workers_active = 0
+
+        def execute_async(self, key, command):
+            """
+            :param key: the key to identify the TI
+            :type key: Tuple(dag_id, task_id, execution_date)
+            :param command: the command to execute
+            :type command: str
+            """
+            local_worker = LocalWorker(self.executor.result_queue)
+            local_worker.key = key
+            local_worker.command = command
+            self.executor.workers_used += 1
+            self.executor.workers_active += 1
+            local_worker.start()
+
+        def sync(self):
+            while not self.executor.result_queue.empty():
+                results = self.executor.result_queue.get()
+                self.executor.change_state(*results)
+                self.executor.workers_active -= 1
+
+        def end(self):
+            while self.executor.workers_active > 0:
+                self.executor.sync()
+                time.sleep(0.5)
+
+    class _LimitedParallelism(object):
+        """Implements LocalExecutor with limited parallelism using a task queue to
+        coordinate work distribution."""
+
+        def __init__(self, executor):
+            self.executor = executor
+
+        def start(self):
+            self.executor.queue = multiprocessing.JoinableQueue()
+
+            self.executor.workers = [
+                QueuedLocalWorker(self.executor.queue, self.executor.result_queue)
+                for _ in range(self.executor.parallelism)
+            ]
+
+            self.executor.workers_used = len(self.executor.workers)
+
+            for w in self.executor.workers:
+                w.start()
+
+        def execute_async(self, key, command):
+            """
+            :param key: the key to identify the TI
+            :type key: Tuple(dag_id, task_id, execution_date)
+            :param command: the command to execute
+            :type command: str
+            """
+            self.executor.queue.put((key, command))
+
+        def sync(self):
+            while not self.executor.result_queue.empty():
+                results = self.executor.result_queue.get()
+                self.executor.change_state(*results)
+
+        def end(self):
+            # Sending poison pill to all worker
+            for _ in self.executor.workers:
+                self.executor.queue.put((None, None))
+
+            # Wait for commands to finish
+            self.executor.queue.join()
+            self.executor.sync()
 
     def start(self):
         self.queue = multiprocessing.JoinableQueue()

@@ -32,9 +32,12 @@ LOAD_CHECK_INTERVAL = 5
 DEFAULT_TARGET_PARTITION_SIZE = 5000000
 
 
-    :param druid_ingest_conn_id: The connection id to the Druid overlord machine which accepts index jobs
-    :type druid_ingest_conn_id: string
-    :param timeout: The interval between polling the Druid job for the status of the ingestion job
+    :param druid_ingest_conn_id: The connection id to the Druid overlord machine
+                                 which accepts index jobs
+    :type druid_ingest_conn_id: str
+    :param timeout: The interval between polling
+                    the Druid job for the status of the ingestion job.
+                    Must be greater than or equal to 1
     :type timeout: int
     :param max_ingestion_time: The maximum ingestion time before assuming the job failed
     :type max_ingestion_time: int

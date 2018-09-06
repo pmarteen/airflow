@@ -50,7 +50,7 @@ class DatabricksHook(BaseHook, LoggingMixin):
             retry_limit=3):
         """
         :param databricks_conn_id: The name of the databricks connection to use.
-        :type databricks_conn_id: string
+        :type databricks_conn_id: str
         :param timeout_seconds: The amount of time in seconds the requests library
             will wait before timing-out.
         :type timeout_seconds: int
@@ -132,15 +132,34 @@ class DatabricksHook(BaseHook, LoggingMixin):
                     # In this case, the user probably made a mistake.
                     # Don't retry.
                     raise AirflowException('Response: {0}, Status Code: {1}'.format(
-                        response.content, response.status_code))
-            except (requests_exceptions.ConnectionError,
-                    requests_exceptions.Timeout) as e:
-                self.log.error(
-                    'Attempt %s API Request to Databricks failed with reason: %s',
-                    attempt_num, e
-                )
-        raise AirflowException(('API requests to Databricks failed {} times. ' +
-                               'Giving up.').format(self.retry_limit))
+                        e.response.content, e.response.status_code))
+
+                self._log_request_error(attempt_num, e)
+
+            if attempt_num == self.retry_limit:
+                raise AirflowException(('API requests to Databricks failed {} times. ' +
+                                        'Giving up.').format(self.retry_limit))
+
+            attempt_num += 1
+            sleep(self.retry_delay)
+
+    def _log_request_error(self, attempt_num, error):
+        self.log.error(
+            'Attempt %s API Request to Databricks failed with reason: %s',
+            attempt_num, error
+        )
+
+    def run_now(self, json):
+        """
+        Utility function to call the ``api/2.0/jobs/run-now`` endpoint.
+
+        :param json: The data used in the body of the request to the ``run-now`` endpoint.
+        :type json: dict
+        :return: the run_id as a string
+        :rtype: str
+        """
+        response = self._do_api_call(RUN_NOW_ENDPOINT, json)
+        return response['run_id']
 
     def submit_run(self, json):
         """
@@ -149,7 +168,7 @@ class DatabricksHook(BaseHook, LoggingMixin):
         :param json: The data used in the body of the request to the ``submit`` endpoint.
         :type json: dict
         :return: the run_id as a string
-        :rtype: string
+        :rtype: str
         """
         response = self._do_api_call(SUBMIT_RUN_ENDPOINT, json)
         return response['run_id']

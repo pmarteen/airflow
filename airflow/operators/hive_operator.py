@@ -30,27 +30,32 @@ class HiveOperator(BaseOperator):
     """
     Executes hql code in a specific Hive database.
 
-    :param hql: the hql to be executed
-    :type hql: string
-    :param hive_cli_conn_id: reference to the Hive database
-    :type hive_cli_conn_id: string
+    :param hql: the hql to be executed. Note that you may also use
+        a relative path from the dag file of a (template) hive
+        script. (templated)
+    :type hql: str
+    :param hive_cli_conn_id: reference to the Hive database. (templated)
+    :type hive_cli_conn_id: str
+    :param hiveconfs: if defined, these key value pairs will be passed
+        to hive as ``-hiveconf "key"="value"``
+    :type hiveconfs: dict
     :param hiveconf_jinja_translate: when True, hiveconf-type templating
         ${var} gets translated into jinja-type templating {{ var }}. Note that
         you may want to use this along with the
         ``DAG(user_defined_macros=myargs)`` parameter. View the DAG
         object documentation for more details.
-    :type hiveconf_jinja_translate: boolean
+    :type hiveconf_jinja_translate: bool
     :param script_begin_tag: If defined, the operator will get rid of the
         part of the script before the first occurrence of `script_begin_tag`
     :type script_begin_tag: str
-    :param mapred_queue: queue used by the Hadoop CapacityScheduler
-    :type  mapred_queue: string
+    :param mapred_queue: queue used by the Hadoop CapacityScheduler. (templated)
+    :type  mapred_queue: str
     :param mapred_queue_priority: priority within CapacityScheduler queue.
         Possible settings include: VERY_HIGH, HIGH, NORMAL, LOW, VERY_LOW
-    :type  mapred_queue_priority: string
+    :type  mapred_queue_priority: str
     :param mapred_job_name: This name will appear in the jobtracker.
         This can make monitoring easier.
-    :type  mapred_job_name: string
+    :type  mapred_job_name: str
     """
 
     template_fields = ('hql', 'schema')

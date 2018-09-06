@@ -28,17 +28,22 @@ class EmailOperator(BaseOperator):
 
     :param to: list of emails to send the email to
     :type to: list or string (comma or semicolon delimited)
-    :param subject: subject line for the email (templated)
-    :type subject: string
-    :param html_content: content of the email (templated), html markup
-        is allowed
-    :type html_content: string
+    :param subject: subject line for the email. (templated)
+    :type subject: str
+    :param html_content: content of the email, html markup
+        is allowed. (templated)
+    :type html_content: str
     :param files: file names to attach in email
     :type files: list
     :param cc: list of recipients to be added in CC field
     :type cc: list or string (comma or semicolon delimited)
     :param bcc: list of recipients to be added in BCC field
     :type bcc: list or string (comma or semicolon delimited)
+    :param mime_subtype: MIME sub content type
+    :type mime_subtype: str
+    :param mime_charset: character set parameter added to the Content-Type
+        header.
+    :type mime_charset: str
     """
 
     template_fields = ('subject', 'html_content')

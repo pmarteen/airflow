@@ -25,6 +25,38 @@ from airflow.utils.decorators import apply_defaults
 class BigQueryToCloudStorageOperator(BaseOperator):
     """
     Transfers a BigQuery table to a Google Cloud Storage bucket.
+
+    .. seealso::
+        For more details about these parameters:
+        https://cloud.google.com/bigquery/docs/reference/v2/jobs
+
+    :param source_project_dataset_table: The dotted
+        ``(<project>.|<project>:)<dataset>.<table>`` BigQuery table to use as the
+        source data. If <project> is not included, project will be the project
+        defined in the connection json. (templated)
+    :type source_project_dataset_table: str
+    :param destination_cloud_storage_uris: The destination Google Cloud
+        Storage URI (e.g. gs://some-bucket/some-file.txt). (templated) Follows
+        convention defined here:
+        https://cloud.google.com/bigquery/exporting-data-from-bigquery#exportingmultiple
+    :type destination_cloud_storage_uris: list
+    :param compression: Type of compression to use.
+    :type compression: str
+    :param export_format: File format to export.
+    :type export_format: str
+    :param field_delimiter: The delimiter to use when extracting to a CSV.
+    :type field_delimiter: str
+    :param print_header: Whether to print a header for a CSV file extract.
+    :type print_header: bool
+    :param bigquery_conn_id: reference to a specific BigQuery hook.
+    :type bigquery_conn_id: str
+    :param delegate_to: The account to impersonate, if any.
+        For this to work, the service account making the request must have domain-wide
+        delegation enabled.
+    :type delegate_to: str
+    :param labels: a dictionary containing labels for the job/query,
+        passed to BigQuery
+    :type labels: dict
     """
     template_fields = ('source_project_dataset_table', 'destination_cloud_storage_uris')
     template_ext = ('.sql',)

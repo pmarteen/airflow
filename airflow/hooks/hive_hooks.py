@@ -55,13 +55,13 @@ class HiveCliHook(BaseHook):
     connection string as is.
 
     :param mapred_queue: queue used by the Hadoop Scheduler (Capacity or Fair)
-    :type  mapred_queue: string
+    :type  mapred_queue: str
     :param mapred_queue_priority: priority within the job queue.
         Possible settings include: VERY_HIGH, HIGH, NORMAL, LOW, VERY_LOW
-    :type  mapred_queue_priority: string
+    :type  mapred_queue_priority: str
     :param mapred_job_name: This name will appear in the jobtracker.
         This can make monitoring easier.
-    :type  mapred_job_name: string
+    :type  mapred_job_name: str
     """
 
     def __init__(
@@ -289,14 +289,12 @@ class HiveCliHook(BaseHook):
         :param table: target Hive table, use dot notation to target a
             specific database
         :type table: str
-        :param create: whether to create the table if it doesn't exist
-        :type create: bool
-        :param recreate: whether to drop and recreate the table at every
-            execution
-        :type recreate: bool
-        :param field_dict: mapping from column name to hive data type
-        :type field_dict: dict
-        :param encoding: string encoding to use when writing DataFrame to file
+        :param field_dict: mapping from column name to hive data type.
+            Note that it must be OrderedDict so as to keep columns' order.
+        :type field_dict: OrderedDict
+        :param delimiter: field delimiter in the file
+        :type delimiter: str
+        :param encoding: str encoding to use when writing DataFrame to file
         :type encoding: str
         :param pandas_kwargs: passed to DataFrame.to_csv
         :type pandas_kwargs: dict
@@ -479,13 +477,13 @@ class HiveMetastoreHook(BaseHook):
         Checks whether a partition exists
 
         :param schema: Name of hive schema (database) @table belongs to
-        :type schema: string
+        :type schema: str
         :param table: Name of hive table @partition belongs to
-        :type schema: string
+        :type schema: str
         :partition: Expression that matches the partitions to check for
             (eg `a = 'b' AND c = 'd'`)
-        :type schema: string
-        :rtype: boolean
+        :type schema: str
+        :rtype: bool
 
         >>> hh = HiveMetastoreHook()
         >>> t = 'static_babynames_partitioned'
@@ -506,12 +504,12 @@ class HiveMetastoreHook(BaseHook):
         Checks whether a partition with a given name exists
 
         :param schema: Name of hive schema (database) @table belongs to
-        :type schema: string
+        :type schema: str
         :param table: Name of hive table @partition belongs to
-        :type schema: string
+        :type schema: str
         :partition: Name of the partitions to check for (eg `a=b/c=d`)
-        :type schema: string
-        :rtype: boolean
+        :type schema: str
+        :rtype: bool
 
         >>> hh = HiveMetastoreHook()
         >>> t = 'static_babynames_partitioned'
@@ -594,15 +592,63 @@ class HiveMetastoreHook(BaseHook):
                 parts = self.metastore.get_partitions(
                     db_name=schema, tbl_name=table_name, max_parts=32767)
 
-            self.metastore._oprot.trans.close()
-            pnames = [p.name for p in table.partitionKeys]
-            return [dict(zip(pnames, p.values)) for p in parts]
+    @staticmethod
+    def _get_max_partition_from_part_specs(part_specs, partition_key, filter_map):
+        """
+        Helper method to get max partition of partitions with partition_key
+        from part specs. key:value pair in filter_map will be used to
+        filter out partitions.
+
+        :param part_specs: list of partition specs.
+        :type part_specs: list
+        :param partition_key: partition key name.
+        :type partition_key: str
+        :param filter_map: partition_key:partition_value map used for partition filtering,
+                           e.g. {'key1': 'value1', 'key2': 'value2'}.
+                           Only partitions matching all partition_key:partition_value
+                           pairs will be considered as candidates of max partition.
+        :type filter_map: map
+        :return: Max partition or None if part_specs is empty.
+        """
+        if not part_specs:
+            return None
+
+        # Assuming all specs have the same keys.
+        if partition_key not in part_specs[0].keys():
+            raise AirflowException("Provided partition_key {} "
+                                   "is not in part_specs.".format(partition_key))
+        if filter_map:
+            is_subset = set(filter_map.keys()).issubset(set(part_specs[0].keys()))
+        if filter_map and not is_subset:
+            raise AirflowException("Keys in provided filter_map {} "
+                                   "are not subset of part_spec keys: {}"
+                                   .format(', '.join(filter_map.keys()),
+                                           ', '.join(part_specs[0].keys())))
+
+        candidates = [p_dict[partition_key] for p_dict in part_specs
+                      if filter_map is None or
+                      all(item in p_dict.items() for item in filter_map.items())]
+
+        if not candidates:
+            return None
+        else:
+            return max(candidates).encode('utf-8')
 
     def max_partition(self, schema, table_name, field=None, filter=None):
         """
-        Returns the maximum value for all partitions in a table. Works only
-        for tables that have a single partition key. For subpartitioned
-        table, we recommend using signal tables.
+        Returns the maximum value for all partitions with given field in a table.
+        If only one partition key exist in the table, the key will be used as field.
+        filter_map should be a partition_key:partition_value map and will be used to
+        filter out partitions.
+
+        :param schema: schema name.
+        :type schema: str
+        :param table_name: table name.
+        :type table_name: str
+        :param field: partition key to get max partition from.
+        :type field: str
+        :param filter_map: partition_key:partition_value map used for partition filtering.
+        :type filter_map: map
 
         >>> hh = HiveMetastoreHook()
         >>> t = 'static_babynames_partitioned'

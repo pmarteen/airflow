@@ -38,6 +38,13 @@ class HDFSHookException(AirflowException):
 class HDFSHook(BaseHook):
     """
     Interact with HDFS. This class is a wrapper around the snakebite library.
+
+    :param hdfs_conn_id: Connection id to fetch connection info
+    :type conn_id: str
+    :param proxy_user: effective user for HDFS operations
+    :type proxy_user: str
+    :param autoconfig: use snakebite's automatically configured client
+    :type autoconfig: bool
     """
     def __init__(self, hdfs_conn_id='hdfs_default', proxy_user=None):
         if not snakebite_imported:
