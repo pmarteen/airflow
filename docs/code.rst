@@ -102,6 +102,70 @@ Community-contributed Operators
 .. autoclass:: airflow.contrib.operators.QuboleOperator
 .. autoclass:: airflow.contrib.operators.hipchat_operator.HipChatAPIOperator
 .. autoclass:: airflow.contrib.operators.hipchat_operator.HipChatAPISendRoomNotificationOperator
+.. autoclass:: airflow.contrib.operators.hive_to_dynamodb.HiveToDynamoDBTransferOperator
+.. autoclass:: airflow.contrib.operators.jenkins_job_trigger_operator.JenkinsJobTriggerOperator
+.. autoclass:: airflow.contrib.operators.jira_operator.JiraOperator
+.. autoclass:: airflow.contrib.operators.kubernetes_pod_operator.KubernetesPodOperator
+.. autoclass:: airflow.contrib.operators.mlengine_operator.MLEngineBatchPredictionOperator
+.. autoclass:: airflow.contrib.operators.mlengine_operator.MLEngineModelOperator
+.. autoclass:: airflow.contrib.operators.mlengine_operator.MLEngineVersionOperator
+.. autoclass:: airflow.contrib.operators.mlengine_operator.MLEngineTrainingOperator
+.. autoclass:: airflow.contrib.operators.mongo_to_s3.MongoToS3Operator
+.. autoclass:: airflow.contrib.operators.mysql_to_gcs.MySqlToGoogleCloudStorageOperator
+.. autoclass:: airflow.contrib.operators.oracle_to_azure_data_lake_transfer.OracleToAzureDataLakeTransfer
+.. autoclass:: airflow.contrib.operators.oracle_to_oracle_transfer.OracleToOracleTransfer
+.. autoclass:: airflow.contrib.operators.postgres_to_gcs_operator.PostgresToGoogleCloudStorageOperator
+.. autoclass:: airflow.contrib.operators.pubsub_operator.PubSubTopicCreateOperator
+.. autoclass:: airflow.contrib.operators.pubsub_operator.PubSubTopicDeleteOperator
+.. autoclass:: airflow.contrib.operators.pubsub_operator.PubSubSubscriptionCreateOperator
+.. autoclass:: airflow.contrib.operators.pubsub_operator.PubSubSubscriptionDeleteOperator
+.. autoclass:: airflow.contrib.operators.pubsub_operator.PubSubPublishOperator
+.. autoclass:: airflow.contrib.operators.qubole_check_operator.QuboleCheckOperator
+.. autoclass:: airflow.contrib.operators.qubole_check_operator.QuboleValueCheckOperator
+.. autoclass:: airflow.contrib.operators.qubole_operator.QuboleOperator
+.. autoclass:: airflow.contrib.operators.s3_copy_object_operator.S3CopyObjectOperator
+.. autoclass:: airflow.contrib.operators.s3_delete_objects_operator.S3DeleteObjectsOperator
+.. autoclass:: airflow.contrib.operators.s3_list_operator.S3ListOperator
+.. autoclass:: airflow.contrib.operators.s3_to_gcs_operator.S3ToGoogleCloudStorageOperator
+.. autoclass:: airflow.contrib.operators.segment_track_event_operator.SegmentTrackEventOperator
+.. autoclass:: airflow.contrib.operators.sftp_operator.SFTPOperator
+.. autoclass:: airflow.contrib.operators.slack_webhook_operator.SlackWebhookOperator
+.. autoclass:: airflow.contrib.operators.snowflake_operator.SnowflakeOperator
+.. autoclass:: airflow.contrib.operators.spark_jdbc_operator.SparkJDBCOperator
+.. autoclass:: airflow.contrib.operators.spark_sql_operator.SparkSqlOperator
+.. autoclass:: airflow.contrib.operators.spark_submit_operator.SparkSubmitOperator
+.. autoclass:: airflow.contrib.operators.sqoop_operator.SqoopOperator
+.. autoclass:: airflow.contrib.operators.ssh_operator.SSHOperator
+.. autoclass:: airflow.contrib.operators.vertica_operator.VerticaOperator
+.. autoclass:: airflow.contrib.operators.vertica_to_hive.VerticaToHiveTransfer
+.. autoclass:: airflow.contrib.operators.winrm_operator.WinRMOperator
+
+Sensors
+^^^^^^^
+
+.. autoclass:: airflow.contrib.sensors.aws_redshift_cluster_sensor.AwsRedshiftClusterSensor
+.. autoclass:: airflow.contrib.sensors.bash_sensor.BashSensor
+.. autoclass:: airflow.contrib.sensors.bigquery_sensor.BigQueryTableSensor
+.. autoclass:: airflow.contrib.sensors.cassandra_record_sensor.CassandraRecordSensor
+.. autoclass:: airflow.contrib.sensors.cassandra_table_sensor.CassandraTableSensor
+.. autoclass:: airflow.contrib.sensors.datadog_sensor.DatadogSensor
+.. autoclass:: airflow.contrib.sensors.emr_base_sensor.EmrBaseSensor
+.. autoclass:: airflow.contrib.sensors.emr_job_flow_sensor.EmrJobFlowSensor
+.. autoclass:: airflow.contrib.sensors.emr_step_sensor.EmrStepSensor
+.. autoclass:: airflow.contrib.sensors.file_sensor.FileSensor
+.. autoclass:: airflow.contrib.sensors.ftp_sensor.FTPSensor
+.. autoclass:: airflow.contrib.sensors.ftp_sensor.FTPSSensor
+.. autoclass:: airflow.contrib.sensors.gcs_sensor.GoogleCloudStorageObjectSensor
+.. autoclass:: airflow.contrib.sensors.gcs_sensor.GoogleCloudStorageObjectUpdatedSensor
+.. autoclass:: airflow.contrib.sensors.gcs_sensor.GoogleCloudStoragePrefixSensor
+.. autoclass:: airflow.contrib.sensors.hdfs_sensor.HdfsSensorFolder
+.. autoclass:: airflow.contrib.sensors.hdfs_sensor.HdfsSensorRegex
+.. autoclass:: airflow.contrib.sensors.jira_sensor.JiraSensor
+.. autoclass:: airflow.contrib.sensors.pubsub_sensor.PubSubPullSensor
+.. autoclass:: airflow.contrib.sensors.qubole_sensor.QuboleSensor
+.. autoclass:: airflow.contrib.sensors.redis_key_sensor.RedisKeySensor
+.. autoclass:: airflow.contrib.sensors.sftp_sensor.SFTPSensor
+.. autoclass:: airflow.contrib.sensors.wasb_sensor.WasbBlobSensor
 
 .. _macros:
 
