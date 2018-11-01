@@ -22,14 +22,14 @@ from airflow.contrib.sensors.sagemaker_base_sensor import SageMakerBaseSensor
 from airflow.utils.decorators import apply_defaults
 
 
-class SageMakerTuningSensor(SageMakerBaseSensor):
+class SageMakerTransformSensor(SageMakerBaseSensor):
     """
-    Asks for the state of the tuning state until it reaches a terminal state.
+    Asks for the state of the transform state until it reaches a terminal state.
     The sensor will error if the job errors, throwing a AirflowException
     containing the failure reason.
 
-    :param job_name: job_name of the tuning instance to check the state of
-    :type job_name: str
+    :param job_name: job_name of the transform job instance to check the state of
+    :type job_name: string
     """
 
     template_fields = ['job_name']
@@ -40,23 +40,23 @@ class SageMakerTuningSensor(SageMakerBaseSensor):
                  job_name,
                  *args,
                  **kwargs):
-        super(SageMakerTuningSensor, self).__init__(*args, **kwargs)
+        super(SageMakerTransformSensor, self).__init__(*args, **kwargs)
         self.job_name = job_name
 
     def non_terminal_states(self):
-        return ['InProgress', 'Stopping', 'Stopped']
+        return SageMakerHook.non_terminal_states
 
     def failed_states(self):
-        return ['Failed']
+        return SageMakerHook.failed_states
 
     def get_sagemaker_response(self):
         sagemaker = SageMakerHook(aws_conn_id=self.aws_conn_id)
 
-        self.log.info('Poking Sagemaker Tuning Job %s', self.job_name)
-        return sagemaker.describe_tuning_job(self.job_name)
+        self.log.info('Poking Sagemaker Transform Job %s', self.job_name)
+        return sagemaker.describe_transform_job(self.job_name)
 
     def get_failed_reason_from_response(self, response):
         return response['FailureReason']
 
     def state_from_response(self, response):
-        return response['HyperParameterTuningJobStatus']
+        return response['TransformJobStatus']

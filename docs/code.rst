@@ -127,6 +127,10 @@ Community-contributed Operators
 .. autoclass:: airflow.contrib.operators.s3_delete_objects_operator.S3DeleteObjectsOperator
 .. autoclass:: airflow.contrib.operators.s3_list_operator.S3ListOperator
 .. autoclass:: airflow.contrib.operators.s3_to_gcs_operator.S3ToGoogleCloudStorageOperator
+.. autoclass:: airflow.contrib.operators.sagemaker_base_operator.SageMakerBaseOperator
+.. autoclass:: airflow.contrib.operators.sagemaker_training_operator.SageMakerTrainingOperator
+.. autoclass:: airflow.contrib.operators.sagemaker_transform_operator.SageMakerTransformOperator
+.. autoclass:: airflow.contrib.operators.sagemaker_tuning_operator.SagemakerTuningOperator
 .. autoclass:: airflow.contrib.operators.segment_track_event_operator.SegmentTrackEventOperator
 .. autoclass:: airflow.contrib.operators.sftp_operator.SFTPOperator
 .. autoclass:: airflow.contrib.operators.slack_webhook_operator.SlackWebhookOperator
@@ -164,6 +168,10 @@ Sensors
 .. autoclass:: airflow.contrib.sensors.pubsub_sensor.PubSubPullSensor
 .. autoclass:: airflow.contrib.sensors.qubole_sensor.QuboleSensor
 .. autoclass:: airflow.contrib.sensors.redis_key_sensor.RedisKeySensor
+.. autoclass:: airflow.contrib.sensors.sagemaker_base_sensor.SageMakerBaseSensor
+.. autoclass:: airflow.contrib.sensors.sagemaker_training_sensor.SageMakerTrainingSensor
+.. autoclass:: airflow.contrib.sensors.sagemaker_transform_sensor.SageMakerTransformSensor
+.. autoclass:: airflow.contrib.sensors.sagemaker_tuning_sensor.SageMakerTuningSensor
 .. autoclass:: airflow.contrib.sensors.sftp_sensor.SFTPSensor
 .. autoclass:: airflow.contrib.sensors.wasb_sensor.WasbBlobSensor
 
@@ -304,6 +312,27 @@ Community contributed hooks
         CloudantHook
 
 .. autoclass:: airflow.contrib.hooks.gcs_hook.GoogleCloudStorageHook
+.. autoclass:: airflow.contrib.hooks.jenkins_hook.JenkinsHook
+.. autoclass:: airflow.contrib.hooks.jira_hook.JiraHook
+.. autoclass:: airflow.contrib.hooks.mongo_hook.MongoHook
+.. autoclass:: airflow.contrib.hooks.pinot_hook.PinotDbApiHook
+.. autoclass:: airflow.contrib.hooks.qubole_hook.QuboleHook
+.. autoclass:: airflow.contrib.hooks.redis_hook.RedisHook
+.. autoclass:: airflow.contrib.hooks.redshift_hook.RedshiftHook
+.. autoclass:: airflow.contrib.hooks.sagemaker_hook.SageMakerHook
+.. autoclass:: airflow.contrib.hooks.salesforce_hook.SalesforceHook
+.. autoclass:: airflow.contrib.hooks.segment_hook.SegmentHook
+.. autoclass:: airflow.contrib.hooks.sftp_hook.SFTPHook
+.. autoclass:: airflow.contrib.hooks.slack_webhook_hook.SlackWebhookHook
+.. autoclass:: airflow.contrib.hooks.snowflake_hook.SnowflakeHook
+.. autoclass:: airflow.contrib.hooks.spark_jdbc_hook.SparkJDBCHook
+.. autoclass:: airflow.contrib.hooks.spark_sql_hook.SparkSqlHook
+.. autoclass:: airflow.contrib.hooks.spark_submit_hook.SparkSubmitHook
+.. autoclass:: airflow.contrib.hooks.sqoop_hook.SqoopHook
+.. autoclass:: airflow.contrib.hooks.ssh_hook.SSHHook
+.. autoclass:: airflow.contrib.hooks.vertica_hook.VerticaHook
+.. autoclass:: airflow.contrib.hooks.wasb_hook.WasbHook
+.. autoclass:: airflow.contrib.hooks.winrm_hook.WinRMHook
 
 Executors
 ---------

@@ -17,7 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 import boto3
 import configparser
 
@@ -118,26 +117,43 @@ class AwsHook(BaseHook):
 
         return aws_access_key_id, aws_secret_access_key, region_name, s3_endpoint_url
 
-    def get_client_type(self, client_type, region_name=None):
-        aws_access_key_id, aws_secret_access_key, region_name, endpoint_url = \
-            self._get_credentials(region_name)
+    def get_client_type(self, client_type, region_name=None, config=None):
+        session, endpoint_url = self._get_credentials(region_name)
 
-        return boto3.client(
-            client_type,
-            region_name=region_name,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            endpoint_url=endpoint_url
-        )
+        return session.client(client_type, endpoint_url=endpoint_url,
+                              config=config, verify=self.verify)
 
-    def get_resource_type(self, resource_type, region_name=None):
-        aws_access_key_id, aws_secret_access_key, region_name, endpoint_url = \
-            self._get_credentials(region_name)
-        
-        return boto3.resource(
-            resource_type,
-            region_name=region_name,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            endpoint_url=endpoint_url
-        )
+    def get_resource_type(self, resource_type, region_name=None, config=None):
+        session, endpoint_url = self._get_credentials(region_name)
+
+        return session.resource(resource_type, endpoint_url=endpoint_url,
+                                config=config, verify=self.verify)
+
+    def get_session(self, region_name=None):
+        """Get the underlying boto3.session."""
+        session, _ = self._get_credentials(region_name)
+        return session
+
+    def get_credentials(self, region_name=None):
+        """Get the underlying `botocore.Credentials` object.
+
+        This contains the attributes: access_key, secret_key and token.
+        """
+        session, _ = self._get_credentials(region_name)
+        # Credentials are refreshable, so accessing your access key and
+        # secret key separately can lead to a race condition.
+        # See https://stackoverflow.com/a/36291428/8283373
+        return session.get_credentials().get_frozen_credentials()
+
+    def expand_role(self, role):
+        """
+        Expand an IAM role name to an IAM role ARN. If role is already an IAM ARN,
+        no change is made.
+
+        :param role: IAM role name or ARN
+        :return: IAM role ARN
+        """
+        if '/' in role:
+            return role
+        else:
+            return self.get_client_type('iam').get_role(RoleName=role)['Role']['Arn']
